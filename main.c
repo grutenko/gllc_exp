@@ -78,7 +78,7 @@ static struct Entity *push_entity(struct EntityArray *arr,
     glGenBuffers(1, &arr->VBO);
     glBindBuffer(GL_ARRAY_BUFFER, arr->VBO);
     glBufferData(GL_ARRAY_BUFFER, MAX_VBO_SIZE, NULL,
-                 GL_DYNAMIC_DRAW); // заранее резервируем память
+                 GL_STATIC_DRAW); // заранее резервируем память
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
   } else {
@@ -95,7 +95,7 @@ static struct Entity *push_entity(struct EntityArray *arr,
   if (!arr->EBO) {
     glGenBuffers(1, &arr->EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, arr->EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, MAX_EBO_SIZE, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, MAX_EBO_SIZE, NULL, GL_STATIC_DRAW);
   } else {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, arr->EBO);
   }
@@ -298,7 +298,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline,
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  glfwWindowHint(GLFW_DEPTH_BITS, 24);
   window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
   if (!window)
     goto _error;
@@ -329,8 +328,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline,
   float v[9] = {-100.0f, -100.0f, 100.0f,  -100.0f,
                 100.0f,  100.0f,  -100.0f, 100.0f};
   unsigned int indx[] = {0, 1, 2, 3, 0, 0};
-  for (x = -200; x < 200; x += 2) {
-    for (y = -200; y < 200; y += 2) {
+  for (x = -300; x < 300; x += 2) {
+    for (y = -300; y < 300; y += 2) {
       struct EntityConfig entConf;
       entConf.type = GL_TRIANGLES;
       v[0] = x;
@@ -420,6 +419,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline,
                      (void *)(G_fill.data[i]._startIndex * sizeof(GLuint)));
     }
     glBindVertexArray(G_line.VAO);
+
     for (size_t i = 0; i < G_line.count; i++) {
       glUniform4f(uColor_loc, G_line.data[i].color[0], G_line.data[i].color[1],
                   G_line.data[i].color[2], G_line.data[i].color[3]);
@@ -428,7 +428,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline,
     }
     glfwSwapBuffers(window);
     glfwWaitEvents();
-    check_gl_error("GLerror");
   }
   glDeleteVertexArrays(1, &G_fill.VAO);
   glDeleteBuffers(1, &G_fill.VBO);
