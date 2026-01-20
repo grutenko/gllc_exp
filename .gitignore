@@ -1,0 +1,61 @@
+# Создано с помощью https://www.toptal.com/developers/gitignore/api/c
+# Отредактируйте на https://www.toptal.com/developers/gitignore?templates=c
+
+### C ###
+# Необходимые условия
+*.d
+
+# Объектные файлы
+*.o
+*.ko
+*.obj
+*.elf
+
+# Выходные данные компоновщика
+*.ilk
+*.map
+*.exp
+
+# Предварительно скомпилированные заголовки
+*.gch
+*.pch
+
+# Библиотеки
+*.lib
+*.a
+*.la
+*.lo
+
+# Общие объекты (в том числе библиотеки DLL для Windows)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Исполняемые файлы
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Отладочные файлы
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Результаты компиляции модулей ядра
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+# Конец https://www.toptal.com/developers/gitignore/api/c
+
+build
+.cache
