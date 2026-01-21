@@ -1,5 +1,11 @@
 #include "cglm/types.h"
+#include "gllc_block.h"
+#include "gllc_block_entity.h"
+#include "gllc_draw_buffer.h"
+#include "gllc_drawing.h"
+#include "gllc_polyline.h"
 #include <stdlib.h>
+
 #define GLFW_INCLUDE_NONE
 #include "glad.h"
 #include <GLFW/glfw3.h>
@@ -12,109 +18,6 @@
 #include <windows.h>
 
 GLFWwindow *window = NULL;
-
-struct EntityConfig {
-  GLenum type;
-  GLfloat *v;
-  GLuint *i;
-  GLint v_size;
-  GLint i_size;
-  GLfloat color[4];
-};
-
-struct Entity {
-  GLenum type;
-  GLuint count;
-  float color[4];
-  GLuint _startIndex;
-};
-
-#define INITIAL_CAPACITY 64
-
-struct EntityArray {
-  GLuint VAO;
-  GLuint VBO;
-  GLuint EBO;
-  GLuint VBO_size;
-  GLuint EBO_size;
-  struct Entity *data; // массив указателей на сущности
-  size_t count;        // текущее количество
-  size_t capacity;     // текущая вместимость
-};
-
-#define MAX_VBO_SIZE (12 * 1024 * 1024) // 12 МБ для VBO
-#define MAX_EBO_SIZE (12 * 1024 * 1024) // 12 МБ для EBO
-
-static struct EntityArray G_fill = {0};
-static struct EntityArray G_line = {0};
-static struct Entity *push_entity(struct EntityArray *arr,
-                                  const struct EntityConfig *ent_config) {
-  // Расширяем массив сущностей на CPU
-  if (arr->count >= arr->capacity) {
-    size_t new_capacity = arr->capacity ? arr->capacity * 2 : INITIAL_CAPACITY;
-    struct Entity *new_data =
-        realloc(arr->data, new_capacity * sizeof(struct Entity));
-    if (!new_data) {
-      fprintf(stderr, "Out of memory!\n");
-      exit(1);
-    }
-    arr->data = new_data;
-    arr->capacity = new_capacity;
-  }
-
-  struct Entity *e = &arr->data[arr->count];
-  e->type = ent_config->type;
-  e->count = ent_config->i_size;
-  memcpy(e->color, ent_config->color, sizeof(float) * 4);
-  e->_startIndex = arr->EBO_size; // смещение в EBO для draw call
-
-  // Создаём VAO один раз
-  if (!arr->VAO)
-    glGenVertexArrays(1, &arr->VAO);
-  glBindVertexArray(arr->VAO);
-
-  // Создаём VBO один раз
-  if (!arr->VBO) {
-    glGenBuffers(1, &arr->VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, arr->VBO);
-    glBufferData(GL_ARRAY_BUFFER, MAX_VBO_SIZE, NULL,
-                 GL_STATIC_DRAW); // заранее резервируем память
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
-  } else {
-    glBindBuffer(GL_ARRAY_BUFFER, arr->VBO);
-  }
-
-  // Добавляем новые вершины в конец буфера
-  GLuint vertexOffset = arr->VBO_size / 2; // если 2D (x,y)
-  glBufferSubData(GL_ARRAY_BUFFER, arr->VBO_size * sizeof(float),
-                  ent_config->v_size * sizeof(float), ent_config->v);
-  arr->VBO_size += ent_config->v_size;
-
-  // Создаём EBO один раз
-  if (!arr->EBO) {
-    glGenBuffers(1, &arr->EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, arr->EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, MAX_EBO_SIZE, NULL, GL_STATIC_DRAW);
-  } else {
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, arr->EBO);
-  }
-
-  // Загружаем индексы с нужным смещением
-  GLuint *shifted_indices = malloc(ent_config->i_size * sizeof(GLuint));
-  for (int j = 0; j < ent_config->i_size; j++)
-    shifted_indices[j] = ent_config->i[j] + vertexOffset;
-
-  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, arr->EBO_size * sizeof(GLuint),
-                  ent_config->i_size * sizeof(GLuint), shifted_indices);
-  free(shifted_indices);
-
-  arr->EBO_size += ent_config->i_size;
-  arr->count++;
-
-  glBindVertexArray(0);
-  return e;
-}
 
 const char *vertex_shader_src =
     "#version 330 core\n"
@@ -323,57 +226,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline,
   if (!fragment_shader)
     goto _error;
   glClearColor(1.0, 1.0, 1.0, 1.0);
-  int x;
-  int y;
-  float v[9] = {-100.0f, -100.0f, 100.0f,  -100.0f,
-                100.0f,  100.0f,  -100.0f, 100.0f};
-  unsigned int indx[] = {0, 1, 2, 3, 0, 0};
-  for (x = -300; x < 300; x += 2) {
-    for (y = -300; y < 300; y += 2) {
-      struct EntityConfig entConf;
-      entConf.type = GL_TRIANGLES;
-      v[0] = x;
-      v[1] = y;
-      v[2] = x + 2;
-      v[3] = y;
-      v[4] = x + 2;
-      v[5] = y + 2;
-      v[6] = x;
-      v[7] = y + 2;
-      indx[0] = 0;
-      indx[1] = 1;
-      indx[2] = 2;
-      indx[3] = 0;
-      indx[4] = 2;
-      indx[5] = 3;
-
-      // Генерация случайного цвета
-      entConf.color[0] = (float)rand() / RAND_MAX; // R
-      entConf.color[1] = (float)rand() / RAND_MAX; // G
-      entConf.color[2] = (float)rand() / RAND_MAX; // B
-      entConf.color[3] = 1.0f; // A всегда 1 (полностью непрозрачный)
-      entConf.v = v;
-      entConf.i = indx;
-      entConf.v_size = 8;
-      entConf.i_size = 6;
-      push_entity(&G_fill, &entConf);
-
-      entConf.type = GL_LINE_LOOP;
-      indx[0] = 0;
-      indx[1] = 1;
-      indx[2] = 2;
-      indx[3] = 3;
-      entConf.color[0] = 0.0;
-      entConf.color[1] = 0.0;
-      entConf.color[2] = 0.0f;
-      entConf.color[3] = 1.0f;
-      entConf.v = v;
-      entConf.i = indx;
-      entConf.v_size = 8;
-      entConf.i_size = 4;
-      push_entity(&G_line, &entConf);
-    }
-  }
   glm_mat4_identity(G_model);
   glm_mat4_identity(G_mview);
   glm_mat4_identity(G_mproj);
@@ -394,6 +246,22 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline,
   if (uColor_loc == -1)
     fprintf(stderr, "Uniform uColor not found!\n");
 
+  struct gllc_drawing *hDrw = gllc_drawing_create();
+  struct gllc_block *hBlock = gllc_drw_add_block(hDrw, "ModelSpace", 0.0, 0.0);
+  struct gllc_polyline *hPline = gllc_block_add_polyline(hBlock, 1);
+  gllc_polyline_add_ver(hPline, -300, -300);
+  gllc_polyline_add_ver(hPline, 300, -300);
+  gllc_polyline_add_ver(hPline, 300, 300);
+  gllc_polyline_add_ver(hPline, -300, 300);
+  gllc_block_update(hBlock);
+
+  struct gllc_draw_buffer *draw_order[] = {
+      &hBlock->draw.gl_triangles,    &hBlock->draw.gl_triangle_strip,
+      &hBlock->draw.gl_triangle_fan, &hBlock->draw.gl_lines,
+      &hBlock->draw.gl_line_strip,   &hBlock->draw.gl_line_loop,
+      &hBlock->draw.gl_points,
+  };
+
   double lastTime = glfwGetTime();
   int frameCount = 0;
   while (!glfwWindowShouldClose(window)) {
@@ -411,32 +279,28 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline,
     glUniformMatrix4fv(uModel_loc, 1, GL_FALSE, (const float *)G_model);
     glUniformMatrix4fv(uView_loc, 1, GL_FALSE, (const float *)G_mview);
     glUniformMatrix4fv(uProjection_loc, 1, GL_FALSE, (const float *)G_mproj);
-    glBindVertexArray(G_fill.VAO);
-    for (size_t i = 0; i < G_fill.count; i++) {
-      glUniform4f(uColor_loc, G_fill.data[i].color[0], G_fill.data[i].color[1],
-                  G_fill.data[i].color[2], G_fill.data[i].color[3]);
-      glDrawElements(G_fill.data[i].type, G_fill.data[i].count, GL_UNSIGNED_INT,
-                     (void *)(G_fill.data[i]._startIndex * sizeof(GLuint)));
-    }
-    glBindVertexArray(G_line.VAO);
-
-    for (size_t i = 0; i < G_line.count; i++) {
-      glUniform4f(uColor_loc, G_line.data[i].color[0], G_line.data[i].color[1],
-                  G_line.data[i].color[2], G_line.data[i].color[3]);
-      glDrawElements(G_line.data[i].type, G_line.data[i].count, GL_UNSIGNED_INT,
-                     (void *)(G_line.data[i]._startIndex * sizeof(GLuint)));
+    int i;
+    for (i = 0; i < sizeof(draw_order) / sizeof(struct gllc_draw_buffer *);
+         i++) {
+      glBindVertexArray(draw_order[i]->VAO);
+      //printf("[%d] Draw ent head: %p, %zu\n", i, draw_order[i]->draw_ent_head,
+      //       draw_order[i]->draw_ent_count);
+      struct gllc_draw_ent *ent = draw_order[i]->draw_ent_head;
+      while (ent) {
+        glUniform4f(uColor_loc, ent->color[0], ent->color[1], ent->color[2],
+                    ent->color[3]);
+        glDrawElements(draw_order[i]->type, ent->buffer_size, GL_UNSIGNED_INT,
+                       (void *)(sizeof(GLuint) * ent->buffer_offset));
+        //printf("Draw Ent %p, size: %d, color: %f, %f, %f, %f\n", ent,
+        //       ent->buffer_size, ent->color[0], ent->color[1], ent->color[2],
+        //       ent->color[3]);
+        ent = ent->next;
+      }
     }
     glfwSwapBuffers(window);
     glfwWaitEvents();
+    check_gl_error("Frame");
   }
-  glDeleteVertexArrays(1, &G_fill.VAO);
-  glDeleteBuffers(1, &G_fill.VBO);
-  glDeleteBuffers(1, &G_fill.EBO);
-  glDeleteVertexArrays(1, &G_line.VAO);
-  glDeleteBuffers(1, &G_line.VBO);
-  glDeleteBuffers(1, &G_line.EBO);
-  free(G_fill.data);
-  free(G_line.data);
   glfwTerminate();
   return 0;
 _error:
