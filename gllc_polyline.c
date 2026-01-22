@@ -16,14 +16,14 @@ static const struct gllc_prop_def *g_props_def[] = {g_block_entity_prop_def,
 
 static void destruct(struct gllc_block_entity *ent) {
   struct gllc_polyline *pline = (struct gllc_polyline *)ent;
-  if (pline->bound)
-    gllc_draw_ent_remove(pline->bound->buffer, pline->bound);
-  if (pline->fill)
-    gllc_draw_ent_remove(pline->fill->buffer, pline->fill);
-  if (pline->bound)
-    gllc_draw_ent_destroy(pline->bound);
-  if (pline->fill)
-    gllc_draw_ent_destroy(pline->fill);
+  if (pline->draw_bound)
+    gllc_draw_ent_remove(pline->draw_bound->buffer, pline->draw_bound);
+  if (pline->draw_fill)
+    gllc_draw_ent_remove(pline->draw_fill->buffer, pline->draw_fill);
+  if (pline->draw_bound)
+    gllc_draw_ent_destroy(pline->draw_bound);
+  if (pline->draw_fill)
+    gllc_draw_ent_destroy(pline->draw_fill);
   free(pline->ver);
 }
 
@@ -32,7 +32,7 @@ static GLuint *G_indices = NULL;
 static size_t G_vcap = 0;
 static size_t G_icap = 0;
 
-static void build(struct gllc_block_entity *ent, struct gllc_draw *draw) {
+static void build(struct gllc_block_entity *ent, struct gllc_draw_batch *draw) {
   struct gllc_polyline *pline = (struct gllc_polyline *)ent;
   size_t vert_count = pline->ver_size / 2;
   size_t vert_size = sizeof(GLfloat) * pline->ver_size;
@@ -69,7 +69,7 @@ static void build(struct gllc_block_entity *ent, struct gllc_draw *draw) {
   ent_cfg.color[1] = (float)(color >> 8) / 255;
   ent_cfg.color[2] = (float)color / 255;
   ent_cfg.color[3] = 1.0f;
-  gllc_draw_ent_update(pline->bound, &ent_cfg);
+  gllc_draw_ent_update(pline->draw_bound, &ent_cfg);
   pline->__ent.modified = 0;
 }
 
@@ -84,16 +84,16 @@ struct gllc_polyline *gllc_polyline_create(struct gllc_block *block,
     ent->__ent.build = build;
     ent->__ent.block = block;
     if (closed) {
-      ent->bound =
-          gllc_draw_buffer_push_ent(&block->draw.gl_line_loop, &ent_config);
-      ent->fill =
-          gllc_draw_buffer_push_ent(&block->draw.gl_triangles, &ent_config);
-      assert(ent->bound);
-      assert(ent->fill);
+      ent->draw_bound =
+          gllc_draw_buffer_push_ent(&block->draw_batch.gl_line_loop, &ent_config);
+      ent->draw_fill =
+          gllc_draw_buffer_push_ent(&block->draw_batch.gl_triangles, &ent_config);
+      assert(ent->draw_bound);
+      assert(ent->draw_fill);
     } else {
-      ent->bound =
-          gllc_draw_buffer_push_ent(&block->draw.gl_line_strip, &ent_config);
-      assert(ent->bound);
+      ent->draw_bound =
+          gllc_draw_buffer_push_ent(&block->draw_batch.gl_line_strip, &ent_config);
+      assert(ent->draw_bound);
     }
     ent->closed = closed;
     ent->__ent.props.color = -1;
@@ -102,6 +102,7 @@ struct gllc_polyline *gllc_polyline_create(struct gllc_block *block,
   }
   return ent;
 }
+
 static int push_ver(struct gllc_polyline *pline, double x, double y) {
   if (pline->ver_size + 2 > pline->ver_cap) {
     size_t new_cap = pline->ver_cap ? pline->ver_cap * 2 : 8;

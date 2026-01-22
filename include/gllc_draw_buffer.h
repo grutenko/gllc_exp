@@ -40,7 +40,7 @@ struct gllc_draw_buffer {
   size_t draw_ent_count;
 };
 
-struct gllc_draw {
+struct gllc_draw_batch {
   struct gllc_draw_buffer gl_points;
   struct gllc_draw_buffer gl_lines;
   struct gllc_draw_buffer gl_line_strip;
@@ -53,7 +53,7 @@ struct gllc_draw {
 void gllc_draw_buffer_dump(const struct gllc_draw_buffer *buffer);
 void gllc_draw_ent_dump(const struct gllc_draw_ent *ent);
 
-void gllc_draw_init(struct gllc_draw *draw);
+void gllc_draw_init(struct gllc_draw_batch *draw);
 void gllc_draw_buffer_init(struct gllc_draw_buffer *buffer, GLenum type);
 
 struct gllc_draw_ent *
@@ -64,7 +64,7 @@ gllc_draw_buffer_push_ent(struct gllc_draw_buffer *buffer,
  */
 void gllc_draw_buffer_cleanup(struct gllc_draw_buffer *buffer);
 
-void gllc_draw_cleanup(struct gllc_draw *draw);
+void gllc_draw_cleanup(struct gllc_draw_batch *draw);
 
 /**
  * Удаляет элемент, буферы не трогает чтобы привести буферы к нормальному виду
@@ -77,7 +77,7 @@ void gllc_draw_ent_remove(struct gllc_draw_buffer *buffer,
  */
 int gllc_draw_buffer_build(struct gllc_draw_buffer *buffer);
 
-int gllc_draw_build(struct gllc_draw *draw);
+int gllc_draw_build(struct gllc_draw_batch *draw);
 /**
  * Обновляет конфигурацию gllc_draw_ent
  */

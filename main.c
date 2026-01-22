@@ -18,33 +18,6 @@
 
 GLFWwindow *window = NULL;
 
-const char *vertex_shader_src =
-    "#version 330 core\n"
-    "layout (location = 0) in vec2 aPos;\n"
-    "\n"
-    "uniform mat4 uModel;\n"
-    "uniform mat4 uView;\n"
-    "uniform mat4 uProjection;\n"
-    "uniform vec4 uColor;\n"
-    "\n"
-    "out vec4 vColor;\n"
-    "\n"
-    "void main()\n"
-    "{\n"
-    "    gl_Position = uProjection * uView * uModel * vec4(aPos, 0.0, 1.0);\n"
-    "    vColor = uColor;\n"
-    "}\n";
-
-const char *fragment_shader_src = "#version 330 core\n"
-                                  "\n"
-                                  "in vec4 vColor;\n"
-                                  "out vec4 FragColor;\n"
-                                  "\n"
-                                  "void main()\n"
-                                  "{\n"
-                                  "    FragColor = vColor;\n"
-                                  "}\n";
-
 GLint G_shader_program = 0;
 
 mat4 G_mproj, G_mview, G_model;

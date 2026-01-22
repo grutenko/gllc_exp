@@ -12,8 +12,8 @@ struct gllc_polyline {
   size_t ver_cap;
   size_t ver_size;
   int closed;
-  struct gllc_draw_ent *bound;
-  struct gllc_draw_ent *fill;
+  struct gllc_draw_ent *draw_bound;
+  struct gllc_draw_ent *draw_fill;
 };
 
 struct gllc_polyline *gllc_polyline_create(struct gllc_block *block,

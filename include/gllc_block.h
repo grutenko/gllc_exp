@@ -16,7 +16,7 @@ struct gllc_block {
   double dy;
   struct gllc_block_entity_props props;
   struct gllc_drawing *drawing;
-  struct gllc_draw draw;
+  struct gllc_draw_batch draw_batch;
   struct gllc_block_entity *ent_head;
   struct gllc_block_entity *ent_tail;
   size_t ent_count;

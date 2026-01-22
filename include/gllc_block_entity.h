@@ -4,7 +4,7 @@
 #include "gllc_object.h"
 
 struct gllc_draw_ent;
-struct gllc_draw;
+struct gllc_draw_batch;
 struct gllc_block;
 
 struct gllc_block_entity_props {
@@ -15,7 +15,7 @@ struct gllc_block_entity_props {
 struct gllc_block_entity;
 
 typedef void (*gllc_block_ent_build_cb)(struct gllc_block_entity *,
-                                        struct gllc_draw *);
+                                        struct gllc_draw_batch *);
 typedef void (*gllc_block_ent_destroy_cb)(struct gllc_block_entity *);
 
 struct gllc_block_entity {

@@ -1,5 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
-
 #include "gllc_block.h"
 #include "gllc_block_entity.h"
 #include "gllc_draw_buffer.h"
@@ -25,7 +23,7 @@ struct gllc_block *gllc_block_create(struct gllc_drawing *drawing,
     block->dy = dy;
     block->props.color = -1;
     block->props.fcolor = -1;
-    gllc_draw_init(&block->draw);
+    gllc_draw_init(&block->draw_batch);
   }
   return block;
 }
@@ -71,10 +69,10 @@ void gllc_block_update(struct gllc_block *block) {
   struct gllc_block_entity *ent = block->ent_head;
   while (ent) {
     if (ent->modified)
-      ent->build(ent, &block->draw);
+      ent->build(ent, &block->draw_batch);
     ent = ent->next;
   }
-  gllc_draw_build(&block->draw);
+  gllc_draw_build(&block->draw_batch);
 }
 
 void gllc_block_destroy(struct gllc_block *block) {
@@ -84,7 +82,7 @@ void gllc_block_destroy(struct gllc_block *block) {
     gllc_block_entity_destroy(ent);
     ent = next;
   }
-  gllc_draw_cleanup(&block->draw);
+  gllc_draw_cleanup(&block->draw_batch);
   gllc_object_cleanup(&block->__obj);
   free(block);
 }
