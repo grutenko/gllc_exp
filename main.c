@@ -1,4 +1,3 @@
-#include "cglm/types.h"
 #include "gllc_block.h"
 #include "gllc_block_entity.h"
 #include "gllc_draw_buffer.h"
@@ -249,10 +248,16 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline,
   struct gllc_drawing *hDrw = gllc_drawing_create();
   struct gllc_block *hBlock = gllc_drw_add_block(hDrw, "ModelSpace", 0.0, 0.0);
   struct gllc_polyline *hPline = gllc_block_add_polyline(hBlock, 1);
-  gllc_polyline_add_ver(hPline, -300, -300);
-  gllc_polyline_add_ver(hPline, 300, -300);
-  gllc_polyline_add_ver(hPline, 300, 300);
-  gllc_polyline_add_ver(hPline, -300, 300);
+  gllc_polyline_add_ver(hPline, 0.0f, 300.0f);     // вершина сверху
+  gllc_polyline_add_ver(hPline, 58.78f, 95.11f);   // правая верхняя
+  gllc_polyline_add_ver(hPline, 293.89f, 95.11f);  // правая
+  gllc_polyline_add_ver(hPline, 95.11f, -36.60f);  // правая нижняя
+  gllc_polyline_add_ver(hPline, 150.0f, -240.0f);  // низ справа
+  gllc_polyline_add_ver(hPline, 0.0f, -95.0f);     // низ
+  gllc_polyline_add_ver(hPline, -150.0f, -240.0f); // низ слева
+  gllc_polyline_add_ver(hPline, -95.11f, -36.60f); // левая нижняя
+  gllc_polyline_add_ver(hPline, -293.89f, 95.11f); // левая
+  gllc_polyline_add_ver(hPline, -58.78f, 95.11f);  // верхняя левая
   gllc_block_update(hBlock);
 
   struct gllc_draw_buffer *draw_order[] = {
@@ -283,23 +288,17 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline,
     for (i = 0; i < sizeof(draw_order) / sizeof(struct gllc_draw_buffer *);
          i++) {
       glBindVertexArray(draw_order[i]->VAO);
-      //printf("[%d] Draw ent head: %p, %zu\n", i, draw_order[i]->draw_ent_head,
-      //       draw_order[i]->draw_ent_count);
       struct gllc_draw_ent *ent = draw_order[i]->draw_ent_head;
       while (ent) {
         glUniform4f(uColor_loc, ent->color[0], ent->color[1], ent->color[2],
                     ent->color[3]);
-        glDrawElements(draw_order[i]->type, ent->buffer_size, GL_UNSIGNED_INT,
+        glDrawElements(draw_order[i]->type, ent->i_cache_size, GL_UNSIGNED_INT,
                        (void *)(sizeof(GLuint) * ent->buffer_offset));
-        //printf("Draw Ent %p, size: %d, color: %f, %f, %f, %f\n", ent,
-        //       ent->buffer_size, ent->color[0], ent->color[1], ent->color[2],
-        //       ent->color[3]);
         ent = ent->next;
       }
     }
     glfwSwapBuffers(window);
     glfwWaitEvents();
-    check_gl_error("Frame");
   }
   glfwTerminate();
   return 0;

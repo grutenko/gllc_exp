@@ -8,8 +8,8 @@ struct gllc_draw;
 struct gllc_block;
 
 struct gllc_block_entity_props {
-  unsigned char color[3];
-  unsigned char fcolor[3];
+  int color;
+  int fcolor;
 };
 
 struct gllc_block_entity;
@@ -32,6 +32,8 @@ struct gllc_block_entity {
 };
 
 void gllc_block_entity_destroy(struct gllc_block_entity *ent);
+int gllc_block_entity_color(struct gllc_block_entity *ent);
+int gllc_block_entity_fcolor(struct gllc_block_entity *ent);
 
 extern const struct gllc_prop_def g_block_entity_prop_def[];
 

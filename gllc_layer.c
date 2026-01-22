@@ -13,6 +13,8 @@ struct gllc_layer *gllc_layer_create(struct gllc_block *block) {
     memset(layer, 0, sizeof(struct gllc_layer));
     layer->__obj.prop_def = g_props_def;
     layer->block = block;
+    layer->props.color = -1;
+    layer->props.fcolor = -1;
   }
   return layer;
 }

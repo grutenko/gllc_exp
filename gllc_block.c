@@ -23,6 +23,8 @@ struct gllc_block *gllc_block_create(struct gllc_drawing *drawing,
     strncpy(block->name, name, 63);
     block->dx = dx;
     block->dy = dy;
+    block->props.color = -1;
+    block->props.fcolor = -1;
     gllc_draw_init(&block->draw);
   }
   return block;

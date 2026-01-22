@@ -67,6 +67,11 @@ void gllc_draw_cleanup(struct gllc_draw *draw) {
   gllc_draw_buffer_cleanup(&draw->gl_triangle_fan);
 }
 
+static GLfloat *G_vertices = NULL;
+static GLuint *G_indices = NULL;
+static size_t G_vcap = 0;
+static size_t G_icap = 0;
+
 int gllc_draw_buffer_build(struct gllc_draw_buffer *buffer) {
   GLuint total_v = 0;
   GLuint total_i = 0;
@@ -80,23 +85,29 @@ int gllc_draw_buffer_build(struct gllc_draw_buffer *buffer) {
   buffer->EBO_size = total_i;
   if (total_v == 0 || total_i == 0)
     return 1;
-  GLfloat *v_all = malloc(sizeof(GLfloat) * total_v);
-  GLuint *i_all = malloc(sizeof(GLuint) * total_i);
-  if (!v_all || !i_all) {
-    free(v_all);
-    free(i_all);
-    return 0;
+  if (G_vcap < total_v) {
+    GLfloat *p = malloc(sizeof(GLfloat) * total_v);
+    if (!p)
+      return 0;
+    G_vertices = p;
+    G_vcap = sizeof(GLfloat) * total_v;
+  }
+  if (G_icap < total_i) {
+    GLuint *p = malloc(sizeof(GLuint) * total_i);
+    if (!p)
+      return 0;
+    G_indices = p;
+    G_icap = sizeof(GLuint) * total_i;
   }
   GLuint v_offset = 0;
   GLuint i_offset = 0;
   ent = buffer->draw_ent_head;
   while (ent) {
-    memcpy(v_all + v_offset, ent->v_cache, sizeof(GLfloat) * ent->v_cache_size);
+    memcpy(G_vertices + v_offset, ent->v_cache,
+           sizeof(GLfloat) * ent->v_cache_size);
     for (GLuint k = 0; k < ent->i_cache_size; k++) {
-      i_all[i_offset + k] =
-          ent->i_cache[k] + v_offset / 2; // предполагаем 2 float на вершину
+      G_indices[i_offset + k] = ent->i_cache[k] + v_offset / 2;
     }
-    ent->buffer_size = ent->i_cache_size;
     ent->buffer_offset = i_offset;
     v_offset += ent->v_cache_size;
     i_offset += ent->i_cache_size;
@@ -104,19 +115,30 @@ int gllc_draw_buffer_build(struct gllc_draw_buffer *buffer) {
   }
   glBindVertexArray(buffer->VAO);
   glBindBuffer(GL_ARRAY_BUFFER, buffer->VBO);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * total_v, v_all,
+  glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * total_v, G_vertices,
                GL_STATIC_DRAW);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->EBO);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * total_i, i_all,
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * total_i, G_indices,
                GL_STATIC_DRAW);
   glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat),
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat),
                         (void *)0);
   glBindVertexArray(0);
-  free(v_all);
-  free(i_all);
-  printf("Draw buffer build %d vertixes.\n", total_i);
   return 1;
+}
+
+void gllc_draw_buffer_dump(const struct gllc_draw_buffer *buf) {
+  if (!buf) {
+    printf("gllc_draw_buffer: NULL\n");
+    return;
+  }
+
+  printf("gllc_draw_buffer @ %p\n", (void *)buf);
+
+  printf("  type            = 0x%X\n", buf->type);
+  printf("  VBO_size        = %u (bytes)\n", buf->VBO_size);
+  printf("  EBO_size        = %u (bytes)\n", buf->EBO_size);
+  printf("  draw_ent_count  = %zu\n", buf->draw_ent_count);
 }
 
 int gllc_draw_build(struct gllc_draw *draw) {
@@ -172,6 +194,39 @@ gllc_draw_buffer_push_ent(struct gllc_draw_buffer *buffer,
   buffer->draw_ent_count++;
 
   return ent;
+}
+
+void gllc_draw_ent_dump(const struct gllc_draw_ent *ent) {
+  if (!ent) {
+    printf("gllc_draw_ent: NULL\n");
+    return;
+  }
+  printf("gllc_draw_ent @ %p\n", (void *)ent);
+  printf("  buffer            = %p\n", (void *)ent->buffer);
+  printf("  v_cache            = %p\n", (void *)ent->v_cache);
+  printf("    v_cache_size     = %u (floats)\n", ent->v_cache_size);
+  printf("    v_cache_cap      = %u (floats)\n", ent->v_cache_cap);
+  if (ent->v_cache && ent->v_cache_size > 0) {
+    printf("    v_cache data:\n");
+    for (GLuint i = 0; i < ent->v_cache_size; ++i) {
+      printf("      [%u] = %f\n", i, ent->v_cache[i]);
+    }
+  }
+  printf("  i_cache            = %p\n", (void *)ent->i_cache);
+  printf("    i_cache_size     = %u (indices)\n", ent->i_cache_size);
+  printf("    i_cache_cap      = %u (indices)\n", ent->i_cache_cap);
+  if (ent->i_cache && ent->i_cache_size > 0) {
+    printf("    i_cache data:\n");
+    for (GLuint i = 0; i < ent->i_cache_size; ++i) {
+      printf("      [%u] = %u\n", i, ent->i_cache[i]);
+    }
+  }
+  printf("  buffer_offset      = %u (bytes)\n", ent->buffer_offset);
+  printf("  buffer_size        = %u (bytes)\n", ent->buffer_size);
+  printf("  color              = { %f, %f, %f, %f }\n", ent->color[0],
+         ent->color[1], ent->color[2], ent->color[3]);
+  printf("  next               = %p\n", (void *)ent->next);
+  printf("  prev               = %p\n", (void *)ent->prev);
 }
 
 int gllc_draw_ent_update(struct gllc_draw_ent *ent,

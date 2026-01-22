@@ -50,6 +50,9 @@ struct gllc_draw {
   struct gllc_draw_buffer gl_triangle_fan;
 };
 
+void gllc_draw_buffer_dump(const struct gllc_draw_buffer *buffer);
+void gllc_draw_ent_dump(const struct gllc_draw_ent *ent);
+
 void gllc_draw_init(struct gllc_draw *draw);
 void gllc_draw_buffer_init(struct gllc_draw_buffer *buffer, GLenum type);
 
