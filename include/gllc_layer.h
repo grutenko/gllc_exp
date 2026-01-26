@@ -6,12 +6,13 @@
 
 struct gllc_block;
 
-struct gllc_layer {
-  struct gllc_object __obj;
-  struct gllc_block_entity_props props;
-  struct gllc_block *block;
-  struct gllc_layer *next;
-  struct gllc_layer *prev;
+struct gllc_layer
+{
+        struct gllc_object __obj;
+        struct gllc_block_entity_props props;
+        struct gllc_block *block;
+        struct gllc_layer *next;
+        struct gllc_layer *prev;
 };
 
 struct gllc_layer *gllc_layer_create(struct gllc_block *block);

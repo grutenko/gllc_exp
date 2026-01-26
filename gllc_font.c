@@ -1,6 +1,2 @@
 #include "gllc_font.h"
-
-int main()
-{
-
-}
+#include "Simplex.h"

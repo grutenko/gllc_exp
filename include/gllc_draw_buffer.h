@@ -3,88 +3,111 @@
 
 #include "glad.h"
 
-struct gllc_draw_ent_config {
-  GLfloat *v;
-  GLuint *i;
-  GLuint v_size;
-  GLuint i_size;
-  GLfloat color[4];
+struct gllc_DE_config
+{
+        const int *skip;
+        const GLfloat *v;
+        const GLuint *i;
+        const GLfloat *color;
+        GLuint v_count;
+        GLuint i_count;
 };
 
-struct gllc_draw_buffer;
+struct gllc_DBD;
 
-struct gllc_draw_ent {
-  struct gllc_draw_buffer *buffer;
-  GLfloat *v_cache;
-  GLuint *i_cache;
-  GLuint v_cache_size;
-  GLuint i_cache_size;
-  GLuint v_cache_cap;
-  GLuint i_cache_cap;
-  GLuint buffer_offset;
-  GLuint buffer_size;
-  GLfloat color[4];
-  struct gllc_draw_ent *next;
-  struct gllc_draw_ent *prev;
+struct gllc_DE
+{
+        struct gllc_DBD *DBD;
+        int skip;
+        GLfloat *v_cache;
+        GLuint *i_cache;
+        GLuint v_cache_count;
+        GLuint i_cache_count;
+        GLfloat color[4];
+        struct gllc_DE *next;
+        struct gllc_DE *prev;
 };
 
-struct gllc_draw_buffer {
-  GLenum type;
-  GLuint VAO;
-  GLuint VBO;
-  GLuint EBO;
-  GLuint VBO_size;
-  GLuint EBO_size;
-  struct gllc_draw_ent *draw_ent_head;
-  struct gllc_draw_ent *draw_ent_tail;
-  size_t draw_ent_count;
+struct gllc_DBD
+{
+        int modified;
+        GLenum GL_type;
+        struct gllc_DE *DE_head;
+        struct gllc_DE *DE_tail;
+        size_t DE_count;
 };
 
-struct gllc_draw_batch {
-  struct gllc_draw_buffer gl_points;
-  struct gllc_draw_buffer gl_lines;
-  struct gllc_draw_buffer gl_line_strip;
-  struct gllc_draw_buffer gl_line_loop;
-  struct gllc_draw_buffer gl_triangles;
-  struct gllc_draw_buffer gl_triangle_strip;
-  struct gllc_draw_buffer gl_triangle_fan;
+struct gllc_DBG_DE
+{
+        GLuint offset;
+        GLuint size;
+        GLfloat color[4];
+        GLfloat tex_u0;
+        GLfloat tex_v0;
+        GLfloat tex_u1;
+        GLfloat tex_v1;
+        GLuint atlas_index;
 };
 
-void gllc_draw_buffer_dump(const struct gllc_draw_buffer *buffer);
-void gllc_draw_ent_dump(const struct gllc_draw_ent *ent);
+struct gllc_DBG
+{
+        GLenum GL_type;
+        GLuint VAO;
+        GLuint VBO;
+        GLuint EBO;
+        GLuint VBO_size;
+        GLuint EBO_size;
+        struct gllc_DBG_DE *DE;
+        size_t DE_cap;
+        size_t DE_size;
+};
 
-void gllc_draw_init(struct gllc_draw_batch *draw);
-void gllc_draw_buffer_init(struct gllc_draw_buffer *buffer, GLenum type);
+struct gllc_DBD_batch
+{
+        struct gllc_DBD GL_lines;
+        struct gllc_DBD GL_line_strip;
+        struct gllc_DBD GL_line_loop;
+        struct gllc_DBD GL_triangles;
+        struct gllc_DBD GL_triangle_strip;
+        struct gllc_DBD GL_triangle_fan;
+        struct gllc_DBD GL_points;
+};
 
-struct gllc_draw_ent *
-gllc_draw_buffer_push_ent(struct gllc_draw_buffer *buffer,
-                          struct gllc_draw_ent_config *ent_config);
-/**
- * Удаляет все связаное с этим буфером
- */
-void gllc_draw_buffer_cleanup(struct gllc_draw_buffer *buffer);
+struct gllc_DBG_batch
+{
+        struct gllc_DBG GL_lines;
+        struct gllc_DBG GL_line_strip;
+        struct gllc_DBG GL_line_loop;
+        struct gllc_DBG GL_triangles;
+        struct gllc_DBG GL_triangle_strip;
+        struct gllc_DBG GL_triangle_fan;
+        struct gllc_DBG GL_points;
+};
 
-void gllc_draw_cleanup(struct gllc_draw_batch *draw);
+struct gllc_DE *gllc_DE_create(struct gllc_DBD *DBD);
 
-/**
- * Удаляет элемент, буферы не трогает чтобы привести буферы к нормальному виду
- * нужно gllc_draw_buffer_build()
- */
-void gllc_draw_ent_remove(struct gllc_draw_buffer *buffer,
-                          struct gllc_draw_ent *ent);
-/**
- * Обновляет буфер исходя из текущего набора gllc_draw_ent
- */
-int gllc_draw_buffer_build(struct gllc_draw_buffer *buffer);
+int gllc_DE_update(struct gllc_DE *DE, struct gllc_DE_config *DE_config);
 
-int gllc_draw_build(struct gllc_draw_batch *draw);
-/**
- * Обновляет конфигурацию gllc_draw_ent
- */
-int gllc_draw_ent_update(struct gllc_draw_ent *ent,
-                         struct gllc_draw_ent_config *entconfig);
-/**
- * Коорекно освобождет место выделеное под обьект
- */
-void gllc_draw_ent_destroy(struct gllc_draw_ent *ent);
+void gllc_DBD_batch_init(struct gllc_DBD_batch *DBD_batch);
+
+void gllc_DBG_init(struct gllc_DBG *DBG, GLenum GL_type);
+
+void gllc_DBG_batch_init(struct gllc_DBG_batch *DBG_batch);
+
+void gllc_DBG_destroy(struct gllc_DBG *DBG);
+
+void gllc_DBG_batch_destroy(struct gllc_DBG_batch *DBG_batch);
+
+void gllc_DBD_destroy(struct gllc_DBD *DBD);
+
+void gllc_DBD_batch_destroy(struct gllc_DBD_batch *DBD_batch);
+
+void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD);
+
+void gllc_DBG_batch_build(struct gllc_DBG_batch *DBG_batch, struct gllc_DBD_batch *DBD_batch);
+
+void gllc_DE_destroy(struct gllc_DE *DE);
+
+void gllc_DBD_batch_modified(struct gllc_DBD_batch *DBD_batch);
+
 #endif

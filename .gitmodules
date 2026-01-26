@@ -7,3 +7,6 @@
 [submodule "3rdparty/cglm"]
 	path = 3rdparty/cglm
 	url = https://github.com/recp/cglm.git
+[submodule "3rdparty/LibreDWG"]
+	path = 3rdparty/LibreDWG
+	url = https://github.com/LibreDWG/libredwg.git

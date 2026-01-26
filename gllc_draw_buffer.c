@@ -1,289 +1,344 @@
 #include "gllc_draw_buffer.h"
 #include "glad.h"
-#include <stdio.h>
+
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
-void gllc_draw_init(struct gllc_draw *draw) {
-  gllc_draw_buffer_init(&draw->gl_line_loop, GL_LINE_LOOP);
-  gllc_draw_buffer_init(&draw->gl_line_strip, GL_LINE_STRIP);
-  gllc_draw_buffer_init(&draw->gl_lines, GL_LINES);
-  gllc_draw_buffer_init(&draw->gl_triangle_strip, GL_LINES);
-  gllc_draw_buffer_init(&draw->gl_triangle_fan, GL_TRIANGLE_FAN);
-  gllc_draw_buffer_init(&draw->gl_triangles, GL_TRIANGLES);
-  gllc_draw_buffer_init(&draw->gl_points, GL_POINTS);
+static void push_DE(struct gllc_DBD *DBD, struct gllc_DE *DE)
+{
+        assert(DBD);
+        assert(DE);
+        assert(!DE->DBD);
+        if (!DBD->DE_head)
+        {
+                DBD->DE_head = DE;
+        }
+        else
+        {
+                DE->prev = DBD->DE_tail;
+                DBD->DE_tail->next = DE;
+        }
+        DBD->DE_tail = DE;
+        DBD->DE_count++;
 }
 
-void gllc_draw_buffer_init(struct gllc_draw_buffer *buffer, GLenum type) {
-  buffer->type = type;
-  glGenVertexArrays(1, &buffer->VAO);
-  glBindVertexArray(buffer->VAO);
-  glGenBuffers(1, &buffer->VBO);
-  glGenBuffers(1, &buffer->EBO);
-  glBindVertexArray(0);
-  buffer->VBO_size = 0;
-  buffer->EBO_size = 0;
-  buffer->draw_ent_count = 0;
-  buffer->draw_ent_head = 0;
-  buffer->draw_ent_tail = 0;
+struct gllc_DE *gllc_DE_create(struct gllc_DBD *DBD)
+{
+        struct gllc_DE *DE = malloc(sizeof(struct gllc_DE));
+        if (DE)
+        {
+                DE->color[0] = 0.0f;
+                DE->color[1] = 0.0f;
+                DE->color[2] = 0.0f;
+                DE->color[3] = 0.0f;
+                DE->i_cache = 0ULL;
+                DE->i_cache_count = 0ULL;
+                DE->v_cache = 0ULL;
+                DE->v_cache_count = 0ULL;
+                DE->next = 0ULL;
+                DE->prev = 0ULL;
+                push_DE(DBD, DE);
+                DE->DBD = DBD;
+        }
+        return DE;
 }
 
-void gllc_draw_buffer_cleanup(struct gllc_draw_buffer *buffer) {
-  if (!buffer)
-    return;
-  struct gllc_draw_ent *ent = buffer->draw_ent_head;
-  while (ent) {
-    struct gllc_draw_ent *next = ent->next;
-    free(ent->v_cache);
-    free(ent->i_cache);
-    free(ent);
-    ent = next;
-  }
-  buffer->draw_ent_head = NULL;
-  buffer->draw_ent_tail = NULL;
-  buffer->draw_ent_count = 0;
-  if (buffer->VBO)
-    glDeleteBuffers(1, &buffer->VBO);
-  if (buffer->EBO)
-    glDeleteBuffers(1, &buffer->EBO);
-  if (buffer->VAO)
-    glDeleteVertexArrays(1, &buffer->VAO);
-  buffer->VBO = 0;
-  buffer->EBO = 0;
-  buffer->VAO = 0;
-  buffer->VBO_size = 0;
-  buffer->EBO_size = 0;
+int gllc_DE_update(struct gllc_DE *DE, struct gllc_DE_config *DE_config)
+{
+        assert(DE);
+        assert(DE_config);
+        assert(DE->DBD);
+        GLfloat *V_new = NULL;
+        GLuint *I_new = NULL;
+
+        if (DE_config->skip)
+        {
+                DE->skip = *DE_config->skip;
+        }
+
+        if (DE_config->v)
+        {
+                size_t size = sizeof(GLfloat) * 2 * DE_config->v_count;
+                V_new = malloc(size);
+                if (!V_new)
+                        return 0;
+                memcpy(V_new, DE_config->v, size);
+        }
+
+        if (DE_config->i)
+        {
+                size_t size = sizeof(GLuint) * DE_config->i_count;
+                I_new = malloc(size);
+                if (!I_new)
+                {
+                        free(V_new);
+                        return 0;
+                }
+                memcpy(I_new, DE_config->i, size);
+        }
+
+        if (DE_config->color)
+        {
+                DE->color[0] = DE_config->color[0];
+                DE->color[1] = DE_config->color[1];
+                DE->color[2] = DE_config->color[2];
+                DE->color[3] = DE_config->color[3];
+        }
+
+        if (V_new)
+        {
+                free(DE->v_cache);
+                DE->v_cache = V_new;
+                DE->v_cache_count = DE_config->v_count;
+        }
+
+        if (I_new)
+        {
+                free(DE->i_cache);
+                DE->i_cache = I_new;
+                DE->i_cache_count = DE_config->i_count;
+        }
+
+        if (DE->DBD)
+                DE->DBD->modified = 1;
+
+        return 1;
 }
 
-void gllc_draw_cleanup(struct gllc_draw *draw) {
-  if (!draw)
-    return;
-  gllc_draw_buffer_cleanup(&draw->gl_points);
-  gllc_draw_buffer_cleanup(&draw->gl_lines);
-  gllc_draw_buffer_cleanup(&draw->gl_line_strip);
-  gllc_draw_buffer_cleanup(&draw->gl_line_loop);
-  gllc_draw_buffer_cleanup(&draw->gl_triangles);
-  gllc_draw_buffer_cleanup(&draw->gl_triangle_strip);
-  gllc_draw_buffer_cleanup(&draw->gl_triangle_fan);
+void gllc_DBD_init(struct gllc_DBD *DBD, int GL_type)
+{
+        memset(DBD, 0, sizeof(struct gllc_DBD));
+        DBD->GL_type = GL_type;
 }
 
-static GLfloat *G_vertices = NULL;
-static GLuint *G_indices = NULL;
-static size_t G_vcap = 0;
-static size_t G_icap = 0;
-
-int gllc_draw_buffer_build(struct gllc_draw_buffer *buffer) {
-  GLuint total_v = 0;
-  GLuint total_i = 0;
-  struct gllc_draw_ent *ent = buffer->draw_ent_head;
-  while (ent) {
-    total_v += ent->v_cache_size;
-    total_i += ent->i_cache_size;
-    ent = ent->next;
-  }
-  buffer->VBO_size = total_v;
-  buffer->EBO_size = total_i;
-  if (total_v == 0 || total_i == 0)
-    return 1;
-  if (G_vcap < total_v) {
-    GLfloat *p = malloc(sizeof(GLfloat) * total_v);
-    if (!p)
-      return 0;
-    G_vertices = p;
-    G_vcap = sizeof(GLfloat) * total_v;
-  }
-  if (G_icap < total_i) {
-    GLuint *p = malloc(sizeof(GLuint) * total_i);
-    if (!p)
-      return 0;
-    G_indices = p;
-    G_icap = sizeof(GLuint) * total_i;
-  }
-  GLuint v_offset = 0;
-  GLuint i_offset = 0;
-  ent = buffer->draw_ent_head;
-  while (ent) {
-    memcpy(G_vertices + v_offset, ent->v_cache,
-           sizeof(GLfloat) * ent->v_cache_size);
-    for (GLuint k = 0; k < ent->i_cache_size; k++) {
-      G_indices[i_offset + k] = ent->i_cache[k] + v_offset / 2;
-    }
-    ent->buffer_offset = i_offset;
-    v_offset += ent->v_cache_size;
-    i_offset += ent->i_cache_size;
-    ent = ent->next;
-  }
-  glBindVertexArray(buffer->VAO);
-  glBindBuffer(GL_ARRAY_BUFFER, buffer->VBO);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * total_v, G_vertices,
-               GL_STATIC_DRAW);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->EBO);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * total_i, G_indices,
-               GL_STATIC_DRAW);
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat),
-                        (void *)0);
-  glBindVertexArray(0);
-  return 1;
+void gllc_DBD_batch_init(struct gllc_DBD_batch *DBD_batch)
+{
+        gllc_DBD_init(&DBD_batch->GL_lines, GL_LINES);
+        gllc_DBD_init(&DBD_batch->GL_line_strip, GL_LINE_STRIP);
+        gllc_DBD_init(&DBD_batch->GL_line_loop, GL_LINE_LOOP);
+        gllc_DBD_init(&DBD_batch->GL_triangles, GL_TRIANGLES);
+        gllc_DBD_init(&DBD_batch->GL_triangle_strip, GL_TRIANGLE_STRIP);
+        gllc_DBD_init(&DBD_batch->GL_triangle_fan, GL_TRIANGLE_FAN);
+        gllc_DBD_init(&DBD_batch->GL_points, GL_POINTS);
 }
 
-void gllc_draw_buffer_dump(const struct gllc_draw_buffer *buf) {
-  if (!buf) {
-    printf("gllc_draw_buffer: NULL\n");
-    return;
-  }
+void gllc_DBG_init(struct gllc_DBG *DBG, GLenum GL_type)
+{
+        memset(DBG, 0, sizeof(*DBG));
+        DBG->GL_type = GL_type;
+        glGenVertexArrays(1, &DBG->VAO);
+        glBindVertexArray(DBG->VAO);
 
-  printf("gllc_draw_buffer @ %p\n", (void *)buf);
+        glGenBuffers(1, &DBG->VBO);
+        glBindBuffer(GL_ARRAY_BUFFER, DBG->VBO);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 2, (void *)0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  printf("  type            = 0x%X\n", buf->type);
-  printf("  VBO_size        = %u (bytes)\n", buf->VBO_size);
-  printf("  EBO_size        = %u (bytes)\n", buf->EBO_size);
-  printf("  draw_ent_count  = %zu\n", buf->draw_ent_count);
+        glGenBuffers(1, &DBG->EBO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DBG->EBO);
+
+        DBG->VBO_size = 0;
+        DBG->EBO_size = 0;
+
+        glBindVertexArray(0);
 }
 
-int gllc_draw_build(struct gllc_draw *draw) {
-  int ok = 1;
-  ok &= gllc_draw_buffer_build(&draw->gl_points);
-  ok &= gllc_draw_buffer_build(&draw->gl_lines);
-  ok &= gllc_draw_buffer_build(&draw->gl_line_strip);
-  ok &= gllc_draw_buffer_build(&draw->gl_line_loop);
-  ok &= gllc_draw_buffer_build(&draw->gl_triangles);
-  ok &= gllc_draw_buffer_build(&draw->gl_triangle_strip);
-  ok &= gllc_draw_buffer_build(&draw->gl_triangle_fan);
-  return ok;
+void gllc_DBG_batch_init(struct gllc_DBG_batch *DBG_batch)
+{
+        gllc_DBG_init(&DBG_batch->GL_lines, GL_LINES);
+        gllc_DBG_init(&DBG_batch->GL_line_strip, GL_LINE_STRIP);
+        gllc_DBG_init(&DBG_batch->GL_line_loop, GL_LINE_LOOP);
+        gllc_DBG_init(&DBG_batch->GL_triangles, GL_TRIANGLES);
+        gllc_DBG_init(&DBG_batch->GL_triangle_strip, GL_TRIANGLE_STRIP);
+        gllc_DBG_init(&DBG_batch->GL_triangle_fan, GL_TRIANGLE_FAN);
+        gllc_DBG_init(&DBG_batch->GL_points, GL_POINTS);
 }
 
-struct gllc_draw_ent *
-gllc_draw_buffer_push_ent(struct gllc_draw_buffer *buffer,
-                          struct gllc_draw_ent_config *ent_config) {
-  if (!buffer || !ent_config)
-    return NULL;
-  struct gllc_draw_ent *ent =
-      (struct gllc_draw_ent *)malloc(sizeof(struct gllc_draw_ent));
-  if (!ent)
-    return NULL;
-  memset(ent, 0, sizeof(struct gllc_draw_ent));
-  ent->buffer = buffer;
-  ent->v_cache_cap = ent_config->v_size;
-  ent->v_cache_size = ent_config->v_size;
-  ent->v_cache = (GLfloat *)malloc(sizeof(GLfloat) * ent->v_cache_cap);
-  if (!ent->v_cache) {
-    free(ent);
-    return NULL;
-  }
-  memcpy(ent->v_cache, ent_config->v, sizeof(GLfloat) * ent_config->v_size);
-  if (ent_config->i_size > 0 && ent_config->i) {
-    ent->i_cache_cap = ent_config->i_size;
-    ent->i_cache_size = ent_config->i_size;
-    ent->i_cache = (GLuint *)malloc(sizeof(GLuint) * ent->i_cache_cap);
-    if (!ent->i_cache) {
-      free(ent->v_cache);
-      free(ent);
-      return NULL;
-    }
-    memcpy(ent->i_cache, ent_config->i, sizeof(GLuint) * ent_config->i_size);
-  }
-  memcpy(ent->color, ent_config->color, sizeof(GLfloat) * 4);
-  ent->prev = buffer->draw_ent_tail;
-  ent->next = NULL;
-  if (buffer->draw_ent_tail)
-    buffer->draw_ent_tail->next = ent;
-  else
-    buffer->draw_ent_head = ent;
-  buffer->draw_ent_tail = ent;
-  buffer->draw_ent_count++;
-
-  return ent;
+void gllc_DBD_destroy(struct gllc_DBD *DBD)
+{
+        struct gllc_DE *DE = DBD->DE_head;
+        while (DE)
+        {
+                struct gllc_DE *DE_next = DE->next;
+                gllc_DE_destroy(DE);
+                DE = DE_next;
+        }
+        DBD->DE_head = NULL;
+        DBD->DE_tail = NULL;
+        DBD->DE_count = 0;
+        DBD->modified = 1;
 }
 
-void gllc_draw_ent_dump(const struct gllc_draw_ent *ent) {
-  if (!ent) {
-    printf("gllc_draw_ent: NULL\n");
-    return;
-  }
-  printf("gllc_draw_ent @ %p\n", (void *)ent);
-  printf("  buffer            = %p\n", (void *)ent->buffer);
-  printf("  v_cache            = %p\n", (void *)ent->v_cache);
-  printf("    v_cache_size     = %u (floats)\n", ent->v_cache_size);
-  printf("    v_cache_cap      = %u (floats)\n", ent->v_cache_cap);
-  if (ent->v_cache && ent->v_cache_size > 0) {
-    printf("    v_cache data:\n");
-    for (GLuint i = 0; i < ent->v_cache_size; ++i) {
-      printf("      [%u] = %f\n", i, ent->v_cache[i]);
-    }
-  }
-  printf("  i_cache            = %p\n", (void *)ent->i_cache);
-  printf("    i_cache_size     = %u (indices)\n", ent->i_cache_size);
-  printf("    i_cache_cap      = %u (indices)\n", ent->i_cache_cap);
-  if (ent->i_cache && ent->i_cache_size > 0) {
-    printf("    i_cache data:\n");
-    for (GLuint i = 0; i < ent->i_cache_size; ++i) {
-      printf("      [%u] = %u\n", i, ent->i_cache[i]);
-    }
-  }
-  printf("  buffer_offset      = %u (bytes)\n", ent->buffer_offset);
-  printf("  buffer_size        = %u (bytes)\n", ent->buffer_size);
-  printf("  color              = { %f, %f, %f, %f }\n", ent->color[0],
-         ent->color[1], ent->color[2], ent->color[3]);
-  printf("  next               = %p\n", (void *)ent->next);
-  printf("  prev               = %p\n", (void *)ent->prev);
+void gllc_DBD_batch_destroy(struct gllc_DBD_batch *DBD_batch)
+{
+        gllc_DBD_destroy(&DBD_batch->GL_line_loop);
+        gllc_DBD_destroy(&DBD_batch->GL_line_strip);
+        gllc_DBD_destroy(&DBD_batch->GL_lines);
+        gllc_DBD_destroy(&DBD_batch->GL_triangle_strip);
+        gllc_DBD_destroy(&DBD_batch->GL_triangles);
+        gllc_DBD_destroy(&DBD_batch->GL_triangle_fan);
+        gllc_DBD_destroy(&DBD_batch->GL_points);
 }
 
-int gllc_draw_ent_update(struct gllc_draw_ent *ent,
-                         struct gllc_draw_ent_config *entconfig) {
-  if (!ent || !entconfig)
-    return 0;
-  if (ent->buffer == NULL)
-    return 0;
-  if (entconfig->v_size > 0 && entconfig->v) {
-    if (entconfig->v_size > ent->v_cache_cap) {
-      GLfloat *new_v =
-          (GLfloat *)realloc(ent->v_cache, sizeof(GLfloat) * entconfig->v_size);
-      if (!new_v)
-        return 0;
-      ent->v_cache = new_v;
-      ent->v_cache_cap = entconfig->v_size;
-    }
-    memcpy(ent->v_cache, entconfig->v, sizeof(GLfloat) * entconfig->v_size);
-    ent->v_cache_size = entconfig->v_size;
-  }
-  if (entconfig->i_size > 0 && entconfig->i) {
-    if (entconfig->i_size > ent->i_cache_cap) {
-      GLuint *new_i =
-          (GLuint *)realloc(ent->i_cache, sizeof(GLuint) * entconfig->i_size);
-      if (!new_i)
-        return 0;
-      ent->i_cache = new_i;
-      ent->i_cache_cap = entconfig->i_size;
-    }
-    memcpy(ent->i_cache, entconfig->i, sizeof(GLuint) * entconfig->i_size);
-    ent->i_cache_size = entconfig->i_size;
-  } else {
-    ent->i_cache_size = 0;
-  }
-  memcpy(ent->color, entconfig->color, sizeof(GLfloat) * 4);
-  return 1;
+void gllc_DBG_destroy(struct gllc_DBG *DBG)
+{
+        if (DBG->EBO)
+        {
+                glDeleteBuffers(1, &DBG->EBO);
+        }
+        if (DBG->VBO)
+        {
+                glDeleteBuffers(1, &DBG->VBO);
+        }
+        if (DBG->VAO)
+        {
+                glDeleteVertexArrays(1, &DBG->VAO);
+        }
+        free(DBG->DE);
+        memset(DBG, 0, sizeof(struct gllc_DBG));
 }
 
-void gllc_draw_ent_remove(struct gllc_draw_buffer *buffer,
-                          struct gllc_draw_ent *ent) {
-  if (!buffer || !ent)
-    return;
-  if (ent->buffer != buffer)
-    return;
-  if (ent->prev)
-    ent->prev->next = ent->next;
-  else
-    buffer->draw_ent_head = ent->next;
-  if (ent->next)
-    ent->next->prev = ent->prev;
-  else
-    buffer->draw_ent_tail = ent->prev;
-  buffer->draw_ent_count--;
+void gllc_DBG_batch_destroy(struct gllc_DBG_batch *DBG_batch)
+{
+        gllc_DBG_destroy(&DBG_batch->GL_lines);
+        gllc_DBG_destroy(&DBG_batch->GL_line_strip);
+        gllc_DBG_destroy(&DBG_batch->GL_line_loop);
+        gllc_DBG_destroy(&DBG_batch->GL_triangles);
+        gllc_DBG_destroy(&DBG_batch->GL_triangle_strip);
+        gllc_DBG_destroy(&DBG_batch->GL_triangle_fan);
+        gllc_DBG_destroy(&DBG_batch->GL_points);
 }
 
-void gllc_draw_ent_destroy(struct gllc_draw_ent *ent) {
-  free(ent->i_cache);
-  free(ent->v_cache);
-  free(ent);
+void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
+{
+        assert(DBG);
+        assert(DBD);
+        assert(DBG->GL_type == DBD->GL_type);
+
+        if (!DBD->modified)
+                return;
+
+        GLuint VBO_size = 0;
+        GLuint EBO_size = 0;
+        size_t DE_size = 0;
+        struct gllc_DE *DE = DBD->DE_head;
+        while (DE)
+        {
+                if (!DE->skip)
+                {
+                        VBO_size += sizeof(GLfloat) * 2 * DE->v_cache_count;
+                        EBO_size += sizeof(GLuint) * DE->i_cache_count;
+                        DE_size++;
+                }
+                DE = DE->next;
+        }
+
+        if (DBG->DE_cap <= DE_size)
+        {
+                struct gllc_DBG_DE *DE_new = realloc(DBG->DE, sizeof(struct gllc_DBG_DE) * DE_size);
+                if (!DE_new)
+                        return;
+                DBG->DE = DE_new;
+                DBG->DE_cap = DE_size;
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, DBG->VBO);
+        glBufferData(GL_ARRAY_BUFFER, VBO_size, NULL, GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DBG->EBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, EBO_size, NULL, GL_STATIC_DRAW);
+
+        GLuint VBO_offset = 0;
+        GLuint EBO_offset = 0;
+        DE = DBD->DE_head;
+
+        int i = 0;
+        while (DE)
+        {
+                if (!DE->skip)
+                {
+                        glBufferSubData(GL_ARRAY_BUFFER, VBO_offset, sizeof(GLfloat) * 2 * DE->v_cache_count, DE->v_cache);
+
+                        glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, EBO_offset, sizeof(GLuint) * DE->i_cache_count, DE->i_cache);
+                        
+                        DBG->DE[i].offset = EBO_offset;
+                        DBG->DE[i].size = DE->i_cache_count;
+                        DBG->DE[i].color[0] = DE->color[0];
+                        DBG->DE[i].color[1] = DE->color[1];
+                        DBG->DE[i].color[2] = DE->color[2];
+                        DBG->DE[i].color[3] = DE->color[3];
+                        DBG->DE[i].atlas_index = 0;
+                        DBG->DE[i].tex_u0 = 0;
+                        DBG->DE[i].tex_u1 = 0;
+                        DBG->DE[i].tex_v0 = 0;
+                        DBG->DE[i].tex_v1 = 0;
+                        VBO_offset += sizeof(GLfloat) * 2 * DE->v_cache_count;
+                        EBO_offset += sizeof(GLuint) * DE->i_cache_count;
+                        i++;
+                }
+                DE = DE->next;
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        DBG->DE_size = DE_size;
+
+        DBD->modified = 0;
+}
+
+void gllc_DBG_batch_build(struct gllc_DBG_batch *DBG_batch, struct gllc_DBD_batch *DBD_batch)
+{
+        gllc_DBG_build(&DBG_batch->GL_line_loop, &DBD_batch->GL_line_loop);
+        gllc_DBG_build(&DBG_batch->GL_line_strip, &DBD_batch->GL_line_strip);
+        gllc_DBG_build(&DBG_batch->GL_lines, &DBD_batch->GL_lines);
+        gllc_DBG_build(&DBG_batch->GL_triangles, &DBD_batch->GL_triangles);
+        gllc_DBG_build(&DBG_batch->GL_triangle_strip, &DBD_batch->GL_triangle_strip);
+        gllc_DBG_build(&DBG_batch->GL_triangle_fan, &DBD_batch->GL_triangle_fan);
+        gllc_DBG_build(&DBG_batch->GL_points, &DBD_batch->GL_points);
+}
+
+static void remove_DE(struct gllc_DBD *DBD, struct gllc_DE *DE)
+{
+        assert(DBD);
+        assert(DE);
+        assert(DE->DBD == DBD);
+
+        if (DE->prev)
+                DE->prev->next = DE->next;
+        if (DE->next)
+                DE->next->prev = DE->prev;
+        if (!DE->prev)
+                DBD->DE_head = DE->next;
+        if (!DE->next)
+                DBD->DE_tail = DE->prev;
+
+        DBD->DE_count--;
+
+        DE->next = NULL;
+        DE->prev = NULL;
+        DE->DBD = NULL;
+}
+
+void gllc_DE_destroy(struct gllc_DE *DE)
+{
+        if (!DE)
+                return;
+        if (DE->v_cache)
+                free(DE->v_cache);
+        if (DE->i_cache)
+                free(DE->i_cache);
+        remove_DE(DE->DBD, DE);
+}
+
+void gllc_DBD_batch_modified(struct gllc_DBD_batch *DBD_batch)
+{
+        DBD_batch->GL_lines.modified = 1;
+        DBD_batch->GL_line_strip.modified = 1;
+        DBD_batch->GL_line_loop.modified = 1;
+        DBD_batch->GL_triangles.modified = 1;
+        DBD_batch->GL_triangle_strip.modified = 1;
+        DBD_batch->GL_triangle_fan.modified = 1;
+        DBD_batch->GL_points.modified = 1;
 }

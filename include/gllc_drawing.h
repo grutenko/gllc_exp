@@ -5,11 +5,12 @@
 
 #include <stddef.h>
 
-struct gllc_drawing {
-  struct gllc_object __obj;
-  struct gllc_block *block_head;
-  struct gllc_block *block_tail;
-  size_t block_count;
+struct gllc_drawing
+{
+        struct gllc_object __obj;
+        struct gllc_block *block_head;
+        struct gllc_block *block_tail;
+        size_t block_count;
 };
 
 struct gllc_drawing *gllc_drawing_create(void);
