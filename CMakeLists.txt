@@ -61,6 +61,8 @@ set(SOURCES glad.c
   gllc_window_native_win32.c
   gllc_font.c
   gllc_window.c
+  gllc_rect.c
+  gllc_circle.c
   ${GENERATED_HEADERS}
   ${GENERATED_FONT_HEADERS}
   stb_truetype.c

@@ -2,6 +2,8 @@
 #include "gllc_window_native.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <winbase.h>
 #include <windows.h>
 #include <wingdi.h>
 #include <winuser.h>
@@ -121,7 +123,7 @@ _error:
         if (!dummy_window)
                 return 0;
         if (dummy_dc)
-                ReleaseDC(dummy_window, dummy_dc); 
+                ReleaseDC(dummy_window, dummy_dc);
         if (dummy_context)
                 wglDeleteContext(dummy_context);
         if (dummy_window)
@@ -197,6 +199,27 @@ static HGLRC init_opengl(HDC real_dc)
 static struct gllc_WN *G_window_head = NULL;
 static struct gllc_WN *G_window_tail = NULL;
 
+static void push_WN(struct gllc_WN *wn)
+{
+        if (!G_window_head)
+                G_window_head = wn;
+
+        wn->prev = G_window_tail;
+        G_window_tail = wn;
+}
+
+static void remove_WN(struct gllc_WN *wn)
+{
+        if (wn->prev)
+                wn->prev->next = wn->next;
+        if (wn->next)
+                wn->next->prev = wn->prev;
+        if (!wn->prev)
+                G_window_head = wn->next;
+        if (!wn->next)
+                G_window_tail = wn->prev;
+}
+
 static LRESULT CALLBACK window_callback(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 {
         LRESULT result = 0;
@@ -205,24 +228,72 @@ static LRESULT CALLBACK window_callback(HWND window, UINT msg, WPARAM wparam, LP
         while (w)
         {
                 if (w->w == window)
-                {
                         break;
-                }
+
                 w = w->next;
         }
+
+        if (w)
+                gllc_WN_make_context_current(w);
 
         switch (msg)
         {
         case WM_PAINT:
+                PAINTSTRUCT ps;
+                BeginPaint(window, &ps);
+
                 if (w && w->on_paint)
-                {
                         w->on_paint(w, w->on_paint_USER_1);
-                }
-                break;
-        case WM_CLOSE:
-        case WM_DESTROY:
-                PostQuitMessage(0);
-                break;
+
+                EndPaint(window, &ps);
+
+                return 0;
+        case WM_LBUTTONDOWN:
+                if (w && w->on_mouse_click)
+                        w->on_mouse_click(w, LOWORD(lparam), HIWORD(lparam), 1, 1, w->on_mouse_click_USER_1);
+                return 0;
+        case WM_RBUTTONDOWN:
+                if (w && w->on_mouse_click)
+                        w->on_mouse_click(w, LOWORD(lparam), HIWORD(lparam), 2, 1, w->on_mouse_click_USER_1);
+                return 0;
+        case WM_MBUTTONDOWN:
+                if (w && w->on_mouse_click)
+                        w->on_mouse_click(w, LOWORD(lparam), HIWORD(lparam), 3, 1, w->on_mouse_click_USER_1);
+                return 0;
+        case WM_LBUTTONUP:
+                if (w && w->on_mouse_click)
+                        w->on_mouse_click(w, LOWORD(lparam), HIWORD(lparam), 1, 0, w->on_mouse_click_USER_1);
+                return 0;
+        case WM_RBUTTONUP:
+                if (w && w->on_mouse_click)
+                        w->on_mouse_click(w, LOWORD(lparam), HIWORD(lparam), 2, 0, w->on_mouse_click_USER_1);
+                return 0;
+        case WM_MBUTTONUP:
+                if (w && w->on_mouse_click)
+                        w->on_mouse_click(w, LOWORD(lparam), HIWORD(lparam), 3, 0, w->on_mouse_click_USER_1);
+                return 0;
+        case WM_SIZE:
+                if (w)
+                        glViewport(0, 0, LOWORD(lparam), HIWORD(lparam));
+
+                if (w && w->on_size)
+                        w->on_size(w, LOWORD(lparam), HIWORD(lparam), w->on_size_USER_1);
+
+                return 0;
+        case WM_MOUSEMOVE:
+                if (w && w->on_mouse_move)
+                        w->on_mouse_move(w, LOWORD(lparam), HIWORD(lparam), w->on_mouse_move_USER_1);
+
+                return 0;
+        case WM_MOUSEWHEEL:
+                if (w && w->on_mouse_scroll)
+                        w->on_mouse_scroll(w, 0, GET_WHEEL_DELTA_WPARAM(wparam) / 120, w->on_mouse_scroll_USER_1);
+                return 0;
+
+        case WM_MOUSEHWHEEL:
+                if (w && w->on_mouse_scroll)
+                        w->on_mouse_scroll(w, GET_WHEEL_DELTA_WPARAM(wparam) / 120, 0, w->on_mouse_scroll_USER_1);
+                return 0;
         default:
                 result = DefWindowProcA(window, msg, wparam, lparam);
                 break;
@@ -231,9 +302,88 @@ static LRESULT CALLBACK window_callback(HWND window, UINT msg, WPARAM wparam, LP
         return result;
 }
 
+ATOM wndClass = 0;
+
 struct gllc_WN *gllc_WN_create(void *parent)
 {
-        return (void *)0;
+        struct gllc_WN *wn = malloc(sizeof(struct gllc_WN));
+        if (wn)
+        {
+                memset(wn, 0, sizeof(struct gllc_WN));
+
+                if (!wndClass)
+                {
+                        WNDCLASSEX wc = {};
+                        wc.cbSize = sizeof(wc);
+                        wc.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
+                        wc.lpfnWndProc = window_callback;
+                        wc.hInstance = GetModuleHandle(NULL);
+                        wc.lpszClassName = "GLLCWindowClass";
+                        wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+
+                        wndClass = RegisterClassEx(&wc);
+                        if (!wndClass)
+                        {
+                                goto _error;
+                        }
+                }
+
+                RECT rc;
+                if (!GetClientRect((HWND)parent, &rc))
+                {
+                        rc.left = 0;
+                        rc.top = 0;
+                        rc.right = 800;
+                        rc.bottom = 600;
+                }
+                int x = rc.left;
+                int y = rc.top;
+                int w = rc.right - rc.left;
+                int h = rc.bottom - rc.top;
+
+                wn->w = CreateWindowEx(
+                    0,
+                    MAKEINTATOM(wndClass),
+                    "OpenGL Window",
+                    WS_CHILD | WS_VISIBLE,
+                    x, y,
+                    w, h,
+                    (HWND)parent,
+                    NULL,
+                    GetModuleHandle(NULL),
+                    NULL);
+
+                if (!wn->w)
+                {
+                        goto _error;
+                }
+
+                wn->dc = GetDC(wn->w);
+                wn->glrc = init_opengl(wn->dc);
+
+                if (!wn->glrc)
+                {
+                        goto _error;
+                }
+
+                push_WN(wn);
+        }
+
+        return wn;
+
+_error:
+        if (!wn)
+                return 0;
+        if (wn->dc)
+                ReleaseDC(wn->w, wn->dc);
+        if (wn->glrc)
+                wglDeleteContext(wn->glrc);
+        if (wn->w)
+                DestroyWindow(wn->w);
+
+        free(wn);
+
+        return 0;
 }
 
 void gllc_WN_destroy(struct gllc_WN *w)
@@ -246,14 +396,20 @@ void gllc_WN_destroy(struct gllc_WN *w)
                 wglDeleteContext(w->glrc);
         if (w->w)
                 DestroyWindow(w->w);
+
+        remove_WN(w);
         free(w);
 }
 
 void gllc_WN_make_context_current(struct gllc_WN *w)
 {
-        if (!wglMakeCurrent(w->dc, w->glrc))
+        if (w)
         {
-                MessageBox(w->w, "Failed to make OpenGL context current", "Error", MB_OK | MB_ICONERROR);
+                wglMakeCurrent(w->dc, w->glrc);
+        }
+        else
+        {
+                wglMakeCurrent(NULL, NULL);
         }
 }
 
@@ -270,24 +426,39 @@ void gllc_WN_get_size(struct gllc_WN *w, int *width, int *height)
         }
 }
 
-void gllc_WN_set_size(struct gllc_WN *w, int width, int height)
+void gllc_WN_set_size(struct gllc_WN *w, int x, int y, int width, int height)
 {
-        RECT rc = {0, 0, width, height};
-        DWORD style = GetWindowLong(w->w, GWL_STYLE);
-        DWORD exstyle = GetWindowLong(w->w, GWL_EXSTYLE);
-
-        AdjustWindowRectEx(&rc, style, FALSE, exstyle);
-
-        int win_w = rc.right - rc.left;
-        int win_h = rc.bottom - rc.top;
-
-        SetWindowPos(w->w, NULL, 0, 0, win_w, win_h, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+        SetWindowPos(w->w, NULL, x, y, width, height, SWP_NOZORDER);
 }
 
 void gllc_WN_on_paint(struct gllc_WN *w, gllc_WN_paint_cb on_paint, void *USER_1)
 {
         w->on_paint = on_paint;
         w->on_paint_USER_1 = USER_1;
+}
+
+void gllc_WN_on_size(struct gllc_WN *w, gllc_WN_size_cb on_size, void *USER_1)
+{
+        w->on_size = on_size;
+        w->on_size_USER_1 = USER_1;
+}
+
+void gllc_WN_on_mouse_move(struct gllc_WN *w, gllc_WN_mouse_move_cb on_mouse_move, void *USER_1)
+{
+        w->on_mouse_move = on_mouse_move;
+        w->on_mouse_move_USER_1 = USER_1;
+}
+
+void gllc_WN_on_mouse_click(struct gllc_WN *w, gllc_WN_mouse_click_cb on_mouse_click, void *USER_1)
+{
+        w->on_mouse_click = on_mouse_click;
+        w->on_mouse_click_USER_1 = USER_1;
+}
+
+void gllc_WN_on_mouse_scroll(struct gllc_WN *w, gllc_WN_mouse_scroll_cb on_mouse_scroll, void *USER_1)
+{
+        w->on_mouse_scroll = on_mouse_scroll;
+        w->on_mouse_scroll_USER_1 = USER_1;
 }
 
 void gllc_WN_swap_buffers(struct gllc_WN *w)

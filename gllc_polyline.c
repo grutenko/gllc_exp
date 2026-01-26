@@ -20,8 +20,7 @@ static void destruct(struct gllc_block_entity *ent)
         struct gllc_polyline *pline = (struct gllc_polyline *)ent;
         if (pline->DE_bound)
                 gllc_DE_destroy(pline->DE_bound);
-        if (pline->DE_fill)
-                gllc_DE_destroy(pline->DE_fill);
+
         free(pline->ver);
 }
 
@@ -53,7 +52,7 @@ static int reserve_I(size_t size)
         return reserve((void **)&G_indices, &G_icap, size);
 }
 
-void gllc_polyline_build(const double *V, size_t V_count, struct gllc_DE *DE_bound, struct gllc_DE *DE_fill, float *color, float *f_color, int closed)
+void gllc_polyline_build(const double *V, size_t V_count, struct gllc_DE *DE_bound, float *color, int closed)
 {
         size_t V_size = sizeof(GLfloat) * 2 * V_count;
         size_t I_size = sizeof(GLuint) * V_count;
@@ -78,8 +77,6 @@ void gllc_polyline_build(const double *V, size_t V_count, struct gllc_DE *DE_bou
             .color = color};
 
         gllc_DE_update(DE_bound, &DE_config);
-
-        // TODO: Update filling ...
 }
 
 static void build(struct gllc_block_entity *ent, struct gllc_DBD_batch *DBD_batch)
@@ -87,16 +84,17 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD_batch *DBD_batc
         int color = gllc_block_entity_color(ent);
         int fcolor = gllc_block_entity_fcolor(ent);
 
-        float color_[] = {(color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff};
-        float fcolor_[] = {(fcolor >> 16) & 0xff, (fcolor >> 8) & 0xff, fcolor & 0xff};
+        GLfloat color_[] = {
+            (GLfloat)((color >> 16) & 0xff) / 255,
+            (GLfloat)((color >> 8) & 0xff) / 255,
+            (GLfloat)(color & 0xff) / 255,
+            1.0f};
 
         gllc_polyline_build(
             ((struct gllc_polyline *)ent)->ver,
             ((struct gllc_polyline *)ent)->ver_size,
             ((struct gllc_polyline *)ent)->DE_bound,
-            ((struct gllc_polyline *)ent)->DE_fill,
             color_,
-            fcolor_,
             ((struct gllc_polyline *)ent)->closed);
 
         ent->modified = 0;
@@ -117,9 +115,8 @@ struct gllc_polyline *gllc_polyline_create(struct gllc_block *block, int closed)
                 if (closed)
                 {
                         ent->DE_bound = gllc_DE_create(&block->DBD_batch.GL_line_loop);
-                        ent->DE_fill = gllc_DE_create(&block->DBD_batch.GL_triangles);
 
-                        if (!ent->DE_bound || !ent->DE_fill)
+                        if (!ent->DE_bound)
                                 goto _error;
                 }
                 else
@@ -139,8 +136,7 @@ struct gllc_polyline *gllc_polyline_create(struct gllc_block *block, int closed)
 _error:
         if (ent->DE_bound)
                 gllc_DE_destroy(ent->DE_bound);
-        if (ent->DE_fill)
-                gllc_DE_destroy(ent->DE_fill);
+
         free(ent);
 
         return 0;
@@ -151,14 +147,16 @@ static int push_ver(struct gllc_polyline *pline, double x, double y)
         if (pline->ver_size + 2 > pline->ver_cap)
         {
                 size_t new_cap = pline->ver_cap ? pline->ver_cap * 2 : 8;
-                double *new_ver = (double *)realloc(pline->ver, sizeof(double) * new_cap);
+                double *new_ver = (double *)realloc(pline->ver, sizeof(double) * new_cap * 2);
                 if (!new_ver)
                         return 0;
                 pline->ver = new_ver;
                 pline->ver_cap = new_cap;
         }
-        pline->ver[pline->ver_size++] = x;
-        pline->ver[pline->ver_size++] = y;
+        pline->ver[pline->ver_size * 2] = x;
+        pline->ver[pline->ver_size * 2 + 1] = y;
+        pline->ver_size++;
+
         return 1;
 }
 

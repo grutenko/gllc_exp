@@ -2,6 +2,7 @@
 #include "glad.h"
 
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -28,6 +29,8 @@ struct gllc_DE *gllc_DE_create(struct gllc_DBD *DBD)
         struct gllc_DE *DE = malloc(sizeof(struct gllc_DE));
         if (DE)
         {
+                DE->DBD = 0ULL;
+                DE->skip = 0;
                 DE->color[0] = 0.0f;
                 DE->color[1] = 0.0f;
                 DE->color[2] = 0.0f;
@@ -252,36 +255,53 @@ void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
 
         GLuint VBO_offset = 0;
         GLuint EBO_offset = 0;
+        int V_nth = 0, I_nth = 0;
         DE = DBD->DE_head;
 
-        int i = 0;
+        int i = 0, j;
         while (DE)
         {
-                if (!DE->skip)
+                if (DE->skip)
                 {
-                        glBufferSubData(GL_ARRAY_BUFFER, VBO_offset, sizeof(GLfloat) * 2 * DE->v_cache_count, DE->v_cache);
-
-                        glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, EBO_offset, sizeof(GLuint) * DE->i_cache_count, DE->i_cache);
-                        
-                        DBG->DE[i].offset = EBO_offset;
-                        DBG->DE[i].size = DE->i_cache_count;
-                        DBG->DE[i].color[0] = DE->color[0];
-                        DBG->DE[i].color[1] = DE->color[1];
-                        DBG->DE[i].color[2] = DE->color[2];
-                        DBG->DE[i].color[3] = DE->color[3];
-                        DBG->DE[i].atlas_index = 0;
-                        DBG->DE[i].tex_u0 = 0;
-                        DBG->DE[i].tex_u1 = 0;
-                        DBG->DE[i].tex_v0 = 0;
-                        DBG->DE[i].tex_v1 = 0;
-                        VBO_offset += sizeof(GLfloat) * 2 * DE->v_cache_count;
-                        EBO_offset += sizeof(GLuint) * DE->i_cache_count;
-                        i++;
+                        DE = DE->next;
+                        continue;
                 }
+
+                glBufferSubData(GL_ARRAY_BUFFER, VBO_offset, sizeof(GLfloat) * 2 * DE->v_cache_count, DE->v_cache);
+
+                for (j = 0; j < DE->i_cache_count; j++)
+                {
+                        DE->i_cache[j] += V_nth;
+                }
+
+                glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, EBO_offset, sizeof(GLuint) * DE->i_cache_count, DE->i_cache);
+
+                for (j = 0; j < DE->i_cache_count; j++)
+                {
+                        DE->i_cache[j] -= V_nth;
+                }
+
+                DBG->DE[i].offset = I_nth;
+                DBG->DE[i].size = DE->i_cache_count;
+                DBG->DE[i].color[0] = DE->color[0];
+                DBG->DE[i].color[1] = DE->color[1];
+                DBG->DE[i].color[2] = DE->color[2];
+                DBG->DE[i].color[3] = DE->color[3];
+                DBG->DE[i].atlas_index = 0;
+                DBG->DE[i].tex_u0 = 0;
+                DBG->DE[i].tex_u1 = 0;
+                DBG->DE[i].tex_v0 = 0;
+                DBG->DE[i].tex_v1 = 0;
+                VBO_offset += sizeof(GLfloat) * 2 * DE->v_cache_count;
+                EBO_offset += sizeof(GLuint) * DE->i_cache_count;
+                V_nth += DE->v_cache_count;
+                I_nth += DE->i_cache_count;
+                i++;
                 DE = DE->next;
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
         DBG->DE_size = DE_size;
 

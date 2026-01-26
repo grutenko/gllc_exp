@@ -1,8 +1,10 @@
 #include "gllc_block.h"
 #include "gllc_block_entity.h"
+#include "gllc_circle.h"
 #include "gllc_draw_buffer.h"
 #include "gllc_object.h"
 #include "gllc_polyline.h"
+#include "gllc_rect.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -23,11 +25,16 @@ struct gllc_block *gllc_block_create(struct gllc_drawing *drawing,
                 strncpy(block->name, name, 63);
                 block->dx = dx;
                 block->dy = dy;
-                block->props.color = -1;
-                block->props.fcolor = -1;
+                block->props.color = 0;
+                block->props.fcolor = 0;
                 gllc_DBD_batch_init(&block->DBD_batch);
         }
         return block;
+}
+
+struct gllc_block_entity *gllc_block_get_first_ent(struct gllc_block *block)
+{
+        return block->ent_head;
 }
 
 void gllc_block_remove_ent(struct gllc_block *block,
@@ -69,6 +76,26 @@ struct gllc_polyline *gllc_block_add_polyline(struct gllc_block *block,
                 push_ent(block, (struct gllc_block_entity *)pline);
         }
         return pline;
+}
+
+struct gllc_rect *gllc_block_add_rect(struct gllc_block *block, double x0, double y0, double x1, double y1)
+{
+        struct gllc_rect *rect = gllc_rect_create(block, x0, y0, x1, y1);
+        if (rect)
+        {
+                push_ent(block, (struct gllc_block_entity *)rect);
+        }
+        return rect;
+}
+
+struct gllc_circle *gllc_block_add_circle(struct gllc_block *block, double x, double y, double radius)
+{
+        struct gllc_circle *circle = gllc_circle_create(block, x, y, radius);
+        if (circle)
+        {
+                push_ent(block, (struct gllc_block_entity *)circle);
+        }
+        return circle;
 }
 
 void gllc_block_update(struct gllc_block *block)

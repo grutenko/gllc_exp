@@ -95,41 +95,29 @@ static GLuint load_GL_program()
 
 static void render_camera(struct gllc_window *w)
 {
-        glm_ortho(
-            -((float)w->width / 2.0) * w->scale_factor,
-            (float)w->width / 2 * w->scale_factor,
-            -((float)w->height / 2.0) * w->scale_factor,
-            (float)w->height / 2 * w->scale_factor,
-            -1.0f, 100.0f, w->GL_m_proj);
+        float half_w = (float)w->width / 2.0f * w->scale_factor;
+        float half_h = (float)w->height / 2.0f * w->scale_factor;
 
-        glm_ortho(
-            -((float)w->width / 2.0),
-            (float)w->width / 2,
-            -((float)w->height / 2.0),
-            (float)w->height / 2,
-            -1.0f, 100.0f, w->GL_m_proj_screen);
+        glm_ortho(-half_w, half_w, half_h, -half_h, -1000.0f, 1000.0f, w->GL_m_proj);
 
+        glm_ortho(0.0f, (float)w->width, (float)w->height, 0.0f, -1.0f, 1.0f, w->GL_m_proj_screen);
+
+        glm_mat4_identity(w->GL_m_view);
         vec4 t = {w->dx, w->dy, 0.0f, 1.0f};
-
         glm_translate(w->GL_m_view, t);
+
+        glm_mat4_mul(w->GL_m_proj, w->GL_m_view, w->GL_m_MVP);
+        glm_mat4_mul(w->GL_m_MVP, w->GL_m_model, w->GL_m_MVP);
+
+        glm_mat4_copy(w->GL_m_proj_screen, w->GL_m_MVP_screen);
 }
 
 static void load_GL_uniform_loc(struct gllc_window *w)
 {
-        w->GL_u_model_loc = glGetUniformLocation(w->GL_program, "uModel");
-        if (w->GL_u_model_loc == -1)
+        w->GL_u_MVP_loc = glGetUniformLocation(w->GL_program, "uMVP");
+        if (w->GL_u_MVP_loc == -1)
         {
-                fprintf(stderr, "Uniform uModel not found!\n");
-        }
-        w->GL_u_view_loc = glGetUniformLocation(w->GL_program, "uView");
-        if (w->GL_u_view_loc == -1)
-        {
-                fprintf(stderr, "Uniform uView not found!\n");
-        }
-        w->GL_u_projection_loc = glGetUniformLocation(w->GL_program, "uProjection");
-        if (w->GL_u_projection_loc == -1)
-        {
-                fprintf(stderr, "Uniform uProjection not found!\n");
+                fprintf(stderr, "Uniform uMVP not found!\n");
         }
         GLint uColor_loc = glGetUniformLocation(w->GL_program, "uColor");
         if (uColor_loc == -1)
@@ -138,16 +126,143 @@ static void load_GL_uniform_loc(struct gllc_window *w)
         }
 }
 
-static void on_mouse_click()
+struct drag_state
 {
+        int dragging;
+        int last_x;
+        int last_y;
+};
+
+static struct drag_state g_drag = {0};
+
+static void on_mouse_click(struct gllc_WN *wn, int x, int y, int mode, int action, void *USER_1)
+{
+        if (mode == 1)
+        {
+                if (action == 1)
+                {
+                        g_drag.dragging = 1;
+                        g_drag.last_x = x;
+                        g_drag.last_y = y;
+                }
+                else if (action == 0)
+                {
+                        g_drag.dragging = 0;
+                }
+        }
 }
 
-static void on_mouse_move()
+static void on_mouse_move(struct gllc_WN *wn, int x, int y, void *USER_1)
 {
+        if (g_drag.dragging)
+        {
+                int dx = x - g_drag.last_x;
+                int dy = y - g_drag.last_y;
+
+                struct gllc_window *w = (struct gllc_window *)USER_1;
+                w->dx += dx * w->scale_factor;
+                w->dy += dy * w->scale_factor;
+
+                g_drag.last_x = x;
+                g_drag.last_y = y;
+
+                render_camera(w);
+
+                gllc_WN_dirty(wn);
+        }
+}
+
+static void on_mouse_scroll(struct gllc_WN *wn, int dx, int dy, void *USER_1)
+{
+        if (dy > 2.0f)
+                dy = 2.0f;
+        if (dy < -10.0f)
+                dy = -2.0f;
+        ((struct gllc_window *)USER_1)->scale_factor *= 1.0f + ((double)dy * 0.1);
+
+        render_camera((struct gllc_window *)USER_1);
+
+        gllc_WN_dirty(wn);
+}
+
+static size_t draw_DBG(GLuint color_loc, struct gllc_DBG *DBG)
+{
+        int i;
+        for (i = 0; i < DBG->DE_size; i++)
+        {
+                glUniform4f(color_loc,
+                            DBG->DE[i].color[0],
+                            DBG->DE[i].color[1],
+                            DBG->DE[i].color[2],
+                            DBG->DE[i].color[3]);
+                glDrawElements(DBG->GL_type,
+                               DBG->DE[i].size,
+                               GL_UNSIGNED_INT,
+                               (void *)(sizeof(GLuint) * DBG->DE[i].offset));
+        }
+        return DBG->DE_size;
+}
+
+static void draw(struct gllc_window *w)
+{
+        if (w->block)
+        {
+                gllc_DBG_batch_build(&w->DBG_batch, &w->block->DBD_batch);
+        }
+
+        int i;
+        mat4 m_identity;
+        glm_mat4_identity(m_identity);
+
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glUseProgram(w->GL_program);
+        glUniformMatrix4fv(w->GL_u_MVP_loc, 1, GL_FALSE, (const float *)w->GL_m_MVP);
+
+        size_t draw_calls = 0;
+
+        for (i = 0; i < GLLC_DRAW_BUFFERS; i++)
+        {
+                if (w->DBG_order[i]->DE_size == 0)
+                {
+                        continue;
+                }
+
+                glBindVertexArray(w->DBG_order[i]->VAO);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_order[i]->EBO);
+
+                draw_calls += draw_DBG(w->GL_u_color_loc, w->DBG_order[i]);
+        }
+
+        glUniformMatrix4fv(w->GL_u_MVP_loc, 1, GL_FALSE, (const float *)w->GL_m_MVP_screen);
+
+        for (i = 0; i < 7; i++)
+        {
+                if (w->DBG_order_screen[i]->DE_size == 0)
+                {
+                        continue;
+                }
+
+                glBindVertexArray(w->DBG_order_screen[i]->VAO);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_order[i]->EBO);
+
+                draw_calls += draw_DBG(w->GL_u_color_loc, w->DBG_order_screen[i]);
+        }
+
+        gllc_WN_swap_buffers(w->native);
 }
 
 static void on_paint(struct gllc_WN *wn, void *USER_1)
 {
+        draw((struct gllc_window *)USER_1);
+}
+
+static void on_size(struct gllc_WN *wn, int width, int height, void *USER_1)
+{
+        ((struct gllc_window *)USER_1)->width = width;
+        ((struct gllc_window *)USER_1)->height = height;
+
+        render_camera((struct gllc_window *)USER_1);
 }
 
 static void set_DBG_order(struct gllc_window *w)
@@ -175,64 +290,9 @@ static void set_DBG_order(struct gllc_window *w)
         w->DBG_order_screen[6] = &w->DBG_batch_screen.GL_points;
 }
 
-static void draw_DBG(GLuint color_loc, struct gllc_DBG *DBG)
+struct gllc_block *gllc_window_get_block(struct gllc_window *window)
 {
-        int i;
-        for (i = 0; i < DBG->DE_size; i++)
-        {
-                glUniform4f(color_loc, DBG->DE[i].color[0], DBG->DE[i].color[0], DBG->DE[i].color[0], DBG->DE[i].color[0]);
-                glDrawElements(DBG->GL_type, DBG->DE[i].size, GL_UNSIGNED_INT, (void *)(sizeof(GLuint) * DBG->DE[i].offset));
-        }
-}
-
-static void draw(struct gllc_window *w)
-{
-        gllc_WN_make_context_current(w->native);
-
-        if (w->block)
-        {
-                gllc_DBG_batch_build(&w->DBG_batch, &w->block->DBD_batch);
-        }
-
-        int i;
-        mat4 m_identity;
-        glm_mat4_identity(m_identity);
-
-        glClear(GL_COLOR_BUFFER_BIT);
-        glUseProgram(w->GL_program);
-        glUniformMatrix4fv(w->GL_u_model_loc, 1, GL_FALSE, (const float *)w->GL_m_model);
-        glUniformMatrix4fv(w->GL_u_view_loc, 1, GL_FALSE, (const float *)w->GL_m_view);
-        glUniformMatrix4fv(w->GL_u_projection_loc, 1, GL_FALSE, (const float *)w->GL_m_proj);
-
-        for (i = 0; i < GLLC_DRAW_BUFFERS; i++)
-        {
-                if (w->DBG_order[i]->DE_size == 0)
-                {
-                        continue;
-                }
-
-                glBindVertexArray(w->DBG_order[i]->VAO);
-
-                draw_DBG(w->GL_u_color_loc, w->DBG_order[i]);
-        }
-
-        glUniformMatrix4fv(w->GL_u_model_loc, 1, GL_FALSE, (const float *)m_identity);
-        glUniformMatrix4fv(w->GL_u_view_loc, 1, GL_FALSE, (const float *)m_identity);
-        glUniformMatrix4fv(w->GL_u_projection_loc, 1, GL_FALSE, (const float *)w->GL_m_proj_screen);
-
-        for (i = 0; i < GLLC_DRAW_BUFFERS; i++)
-        {
-                if (w->DBG_order_screen[i]->DE_size == 0)
-                {
-                        continue;
-                }
-
-                glBindVertexArray(w->DBG_order_screen[i]->VAO);
-
-                draw_DBG(w->GL_u_color_loc, w->DBG_order_screen[i]);
-        }
-
-        gllc_WN_swap_buffers(w->native);
+        return window->block;
 }
 
 struct gllc_window *gllc_window_create(void *parent)
@@ -255,6 +315,10 @@ struct gllc_window *gllc_window_create(void *parent)
         }
 
         gllc_WN_on_paint(w->native, on_paint, w);
+        gllc_WN_on_size(w->native, on_size, w);
+        gllc_WN_on_mouse_move(w->native, on_mouse_move, w);
+        gllc_WN_on_mouse_scroll(w->native, on_mouse_scroll, w);
+        gllc_WN_on_mouse_click(w->native, on_mouse_click, w);
 
         gllc_WN_make_context_current(w->native);
 
@@ -286,6 +350,8 @@ struct gllc_window *gllc_window_create(void *parent)
         w->height = height;
         w->scale_factor = 1.0f;
 
+        printf("Window size: %d, %d.\n", width, height);
+
         render_camera(w);
 
         load_GL_uniform_loc(w);
@@ -309,6 +375,23 @@ _error:
                 free(w);
         }
         return 0;
+}
+
+void gllc_window_redraw(struct gllc_window *window)
+{
+        gllc_WN_dirty(window->native);
+}
+
+void gllc_window_set_clear_color(struct gllc_window *window, int r, int g, int b)
+{
+        gllc_WN_make_context_current(window->native);
+
+        glClearColor((GLfloat)r / 255, (GLfloat)g / 255, (GLfloat)b / 255, 1.0f);
+}
+
+void gllc_window_set_size(struct gllc_window *window, int x, int y, int width, int height)
+{
+        gllc_WN_set_size(window->native, x, y, width, height);
 }
 
 void gllc_window_set_block(struct gllc_window *window,

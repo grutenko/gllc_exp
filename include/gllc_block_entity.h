@@ -42,9 +42,15 @@ void gllc_block_entity_destroy(struct gllc_block_entity *ent);
 
 int gllc_block_entity_color(struct gllc_block_entity *ent);
 
+void gllc_block_entity_set_color(struct gllc_block_entity *ent, int color);
+
 int gllc_block_entity_fcolor(struct gllc_block_entity *ent);
 
+void gllc_block_entity_set_fcolor(struct gllc_block_entity *ent, int color);
+
 void gllc_block_entity_set_layer(struct gllc_block_entity *ent, struct gllc_layer *layer);
+
+struct gllc_block_entity *gllc_block_entity_get_next(struct gllc_block_entity *ent);
 
 extern const struct gllc_prop_def g_block_entity_prop_def[];
 

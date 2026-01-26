@@ -29,6 +29,18 @@ int gllc_block_entity_fcolor(struct gllc_block_entity *ent)
         return 0;
 }
 
+void gllc_block_entity_set_color(struct gllc_block_entity *ent, int color)
+{
+        ent->props.color = color;
+        ent->modified = 1;
+}
+
+void gllc_block_entity_set_fcolor(struct gllc_block_entity *ent, int fcolor)
+{
+        ent->props.fcolor = fcolor;
+        ent->modified = 1;
+}
+
 void gllc_block_entity_set_layer(struct gllc_block_entity *ent, struct gllc_layer *layer)
 {
         ent->layer = layer;
@@ -42,4 +54,13 @@ void gllc_block_entity_destroy(struct gllc_block_entity *ent)
                 ent->destroy(ent);
         }
         free(ent);
+}
+
+struct gllc_block_entity *gllc_block_entity_get_next(struct gllc_block_entity *ent)
+{
+        if (!ent)
+        {
+                return NULL;
+        }
+        return ent->next;
 }

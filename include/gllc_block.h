@@ -8,6 +8,7 @@
 struct gllc_layer;
 struct gllc_drawing;
 struct gllc_polyline;
+struct gllc_rect;
 
 struct gllc_block
 {
@@ -32,9 +33,15 @@ struct gllc_block *gllc_block_create(struct gllc_drawing *drawing, const char *n
 
 struct gllc_polyline *gllc_block_add_polyline(struct gllc_block *block, int closed);
 
+struct gllc_rect *gllc_block_add_rect(struct gllc_block *block, double x0, double y0, double x1, double y1);
+
 void gllc_block_update(struct gllc_block *block);
 
 void gllc_block_destroy(struct gllc_block *block);
+
+struct gllc_block_entity *gllc_block_get_first_ent(struct gllc_block *block);
+
+struct gllc_circle *gllc_block_add_circle(struct gllc_block *block, double x, double y, double radius);
 
 void gllc_block_remove_ent(struct gllc_block *block, struct gllc_block_entity *ent);
 
