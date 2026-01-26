@@ -229,7 +229,6 @@ static LRESULT CALLBACK window_callback(HWND window, UINT msg, WPARAM wparam, LP
         {
                 if (w->w == window)
                         break;
-
                 w = w->next;
         }
 
@@ -322,10 +321,9 @@ struct gllc_WN *gllc_WN_create(void *parent)
                         wc.hCursor = LoadCursor(NULL, IDC_ARROW);
 
                         wndClass = RegisterClassEx(&wc);
+
                         if (!wndClass)
-                        {
                                 goto _error;
-                        }
                 }
 
                 RECT rc;
@@ -336,35 +334,27 @@ struct gllc_WN *gllc_WN_create(void *parent)
                         rc.right = 800;
                         rc.bottom = 600;
                 }
-                int x = rc.left;
-                int y = rc.top;
-                int w = rc.right - rc.left;
-                int h = rc.bottom - rc.top;
 
                 wn->w = CreateWindowEx(
                     0,
                     MAKEINTATOM(wndClass),
                     "OpenGL Window",
                     WS_CHILD | WS_VISIBLE,
-                    x, y,
-                    w, h,
+                    rc.left, rc.top,
+                    rc.right - rc.left, rc.bottom - rc.top,
                     (HWND)parent,
                     NULL,
                     GetModuleHandle(NULL),
                     NULL);
 
                 if (!wn->w)
-                {
                         goto _error;
-                }
 
                 wn->dc = GetDC(wn->w);
                 wn->glrc = init_opengl(wn->dc);
 
                 if (!wn->glrc)
-                {
                         goto _error;
-                }
 
                 push_WN(wn);
         }
@@ -424,6 +414,19 @@ void gllc_WN_get_size(struct gllc_WN *w, int *width, int *height)
                 *width = rc.right - rc.left;
                 *height = rc.bottom - rc.top;
         }
+}
+
+void gllc_WN_get_cursor(struct gllc_WN *w, int *x, int *y)
+{
+        POINT p;
+
+        GetCursorPos(&p);
+        ScreenToClient((HWND)w->w, &p);
+
+        if (x)
+                *x = p.x;
+        if (y)
+                *y = p.y;
 }
 
 void gllc_WN_set_size(struct gllc_WN *w, int x, int y, int width, int height)

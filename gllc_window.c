@@ -3,6 +3,7 @@
 #include "gllc_block.h"
 #include "gllc_draw_buffer.h"
 #include "gllc_object.h"
+#include "gllc_window_grid.h"
 #include "gllc_window_native.h"
 
 #include "gllc_fragment_shader.h"
@@ -137,7 +138,7 @@ static struct drag_state g_drag = {0};
 
 static void on_mouse_click(struct gllc_WN *wn, int x, int y, int mode, int action, void *USER_1)
 {
-        if (mode == 1)
+        if (mode == 3)
         {
                 if (action == 1)
                 {
@@ -174,11 +175,21 @@ static void on_mouse_move(struct gllc_WN *wn, int x, int y, void *USER_1)
 
 static void on_mouse_scroll(struct gllc_WN *wn, int dx, int dy, void *USER_1)
 {
+        struct gllc_window *w = (struct gllc_window *)USER_1;
+
         if (dy > 2.0f)
                 dy = 2.0f;
         if (dy < -10.0f)
                 dy = -2.0f;
-        ((struct gllc_window *)USER_1)->scale_factor *= 1.0f + ((double)dy * 0.1);
+
+        double old_scale = w->scale_factor;
+        w->scale_factor *= 1.0f + ((double)dy * 0.1);
+
+        int mouse_x, mouse_y;
+        gllc_WN_get_cursor(wn, &mouse_x, &mouse_y);
+
+        w->dx += (mouse_x - (int)(w->width / 2)) * (w->scale_factor - old_scale);
+        w->dy += (mouse_y - (int)(w->height / 2)) * (w->scale_factor - old_scale);
 
         render_camera((struct gllc_window *)USER_1);
 
@@ -218,6 +229,15 @@ static void draw(struct gllc_window *w)
 
         glUseProgram(w->GL_program);
         glUniformMatrix4fv(w->GL_u_MVP_loc, 1, GL_FALSE, (const float *)w->GL_m_MVP);
+
+        if (w->grid_used)
+        {
+                double x0 = -(int)(w->width / 2) * w->scale_factor - w->dx;
+                double y0 = -(int)(w->height / 2) * w->scale_factor - w->dy;
+                double x1 = (int)(w->width / 2) * w->scale_factor - w->dx;
+                double y1 = (int)(w->height / 2) * w->scale_factor - w->dy;
+                gllc_W_grid_draw(&w->grid, w->GL_u_color_loc, x0, y0, x1, y1, w->scale_factor);
+        }
 
         size_t draw_calls = 0;
 
@@ -322,6 +342,13 @@ struct gllc_window *gllc_window_create(void *parent)
 
         gllc_WN_make_context_current(w->native);
 
+        gllc_W_grid_init(&w->grid);
+        w->grid.color[0] = 0.9f;
+        w->grid.color[1] = 0.9f;
+        w->grid.color[2] = 0.9f;
+        w->grid.color[3] = 1.0f;
+        w->grid_used = 1;
+
         if (!gladLoadGL())
         {
                 goto _error;
@@ -409,6 +436,7 @@ void gllc_window_destroy(struct gllc_window *window)
         gllc_DBG_batch_destroy(&window->DBG_batch);
         gllc_DBG_batch_destroy(&window->DBG_batch_interactive);
         gllc_DBG_batch_destroy(&window->DBG_batch_screen);
+        gllc_W_grid_cleanup(&window->grid);
         gllc_WN_destroy(window->native);
 
         free(window);

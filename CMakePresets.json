@@ -14,6 +14,22 @@
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
+        },
+        {
+            "name": "release",
+            "displayName": "GCC 13.2.0 x86_64-w64-mingw32 Release O2",
+            "description": "Using compilers: C = C:\\Strawberry\\c\\bin\\gcc.exe, CXX = C:\\Strawberry\\c\\bin\\g++.exe, Optimization -O2",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_C_COMPILER": "C:/Strawberry/c/bin/gcc.exe",
+                "CMAKE_CXX_COMPILER": "C:/Strawberry/c/bin/g++.exe",
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_C_FLAGS": "-O2",
+                "CMAKE_CXX_FLAGS": "-O2",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
         }
     ]
 }

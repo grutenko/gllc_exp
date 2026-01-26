@@ -81,10 +81,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             NULL);
 
 #define TIMER_ID 1
-#define TIMER_INTERVAL 64
+#define TIMER_INTERVAL 512
 
         // после создания окна:
-        // SetTimer(hwnd, TIMER_ID, TIMER_INTERVAL, NULL);
+        //SetTimer(hwnd, TIMER_ID, TIMER_INTERVAL, NULL);
 
         w = gllc_window_create(hwnd);
         if (!w)
@@ -96,39 +96,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         struct gllc_drawing *hDrw = gllc_drawing_create();
         struct gllc_block *hBlock = gllc_drw_add_block(hDrw, "Model Space", 0.0f, 0.0f);
 
-        
-        int circle_count = 50000;
-
-        for (int i = 0; i < circle_count; i++)
-        {
-                // случайная позиция
-                float x = (float)(rand() % 400 - 200);
-                float y = (float)(rand() % 400 - 200);
-
-                // случайный радиус
-                float r = 10.0f + (float)(rand() % 40);
-
-                struct gllc_circle *hCircle =
-                    gllc_block_add_circle(hBlock, x, y, r);
-
-                // случайный цвет контура
-                unsigned int color =
-                    ((rand() & 0xFF) << 16) |
-                    ((rand() & 0xFF) << 8) |
-                    (rand() & 0xFF);
-
-                // случайный цвет заливки
-                unsigned int fcolor =
-                    ((rand() & 0xFF) << 16) |
-                    ((rand() & 0xFF) << 8) |
-                    (rand() & 0xFF);
-
-                gllc_block_entity_set_color(
-                    (struct gllc_block_entity *)hCircle, color);
-
-                gllc_block_entity_set_fcolor(
-                    (struct gllc_block_entity *)hCircle, fcolor);
-        }
         int grid_size = 2;
         int width = 600;
         int height = 600;

@@ -49,6 +49,8 @@ void gllc_WN_on_mouse_click(struct gllc_WN *w, gllc_WN_mouse_click_cb on_mouse_c
 
 void gllc_WN_on_mouse_scroll(struct gllc_WN *w, gllc_WN_mouse_scroll_cb on_mouse_scroll, void *USER_1);
 
+void gllc_WN_get_cursor(struct gllc_WN *w, int *x, int *y);
+
 void gllc_WN_destroy(struct gllc_WN *w);
 
 void gllc_WN_make_context_current(struct gllc_WN *w);

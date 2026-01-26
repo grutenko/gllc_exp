@@ -3,6 +3,7 @@
 
 #include "gllc_draw_buffer.h"
 #include "gllc_object.h"
+#include "gllc_window_grid.h"
 
 #include <cglm/call.h>
 #include <glad.h>
@@ -17,6 +18,8 @@ struct gllc_window
         struct gllc_object __obj;
         struct gllc_WN *native;
         struct gllc_block *block;
+        int grid_used;
+        struct gllc_W_grid grid;
         GLuint GL_program;
         GLuint GL_u_MVP_loc;
         GLuint GL_u_color_loc;
