@@ -38,7 +38,7 @@ struct gllc_W_grid_config
 
 void gllc_W_grid_configure(struct gllc_W_grid *grid, struct gllc_W_grid_config *config);
 
-void gllc_W_grid_draw(struct gllc_W_grid *grid, GLuint u_color_loc, double wx0, double wy0, double wx1, double wy1, double scale);
+void gllc_W_grid_draw(struct gllc_W_grid *grid, GLuint u_color_loc, double wx0, double wy0, double wx1, double wy1, double scale, GLfloat *clear_color);
 
 void gllc_W_grid_cleanup(struct gllc_W_grid *grid);
 

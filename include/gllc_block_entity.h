@@ -16,8 +16,7 @@ struct gllc_block_entity_props
 
 struct gllc_block_entity;
 
-typedef void (*gllc_block_ent_build_cb)(struct gllc_block_entity *,
-                                        struct gllc_DBD_batch *);
+typedef void (*gllc_block_ent_build_cb)(struct gllc_block_entity *, struct gllc_DBD *);
 typedef void (*gllc_block_ent_destroy_cb)(struct gllc_block_entity *);
 
 struct gllc_block_entity

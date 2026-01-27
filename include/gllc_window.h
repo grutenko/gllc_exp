@@ -3,7 +3,9 @@
 
 #include "gllc_draw_buffer.h"
 #include "gllc_object.h"
+#include "gllc_window_cursor.h"
 #include "gllc_window_grid.h"
+#include "gllc_window_selection.h"
 
 #include <cglm/call.h>
 #include <glad.h>
@@ -11,34 +13,40 @@
 struct gllc_WN;
 struct gllc_block;
 
-#define GLLC_DRAW_BUFFERS 14
-
 struct gllc_window
 {
         struct gllc_object __obj;
         struct gllc_WN *native;
+        struct gllc_W_grid grid;
+        struct gllc_W_cursor cursor;
+        struct gllc_W_selection selection;
         struct gllc_block *block;
         int grid_used;
-        struct gllc_W_grid grid;
+        GLfloat clear_color[4];
         GLuint GL_program;
         GLuint GL_u_MVP_loc;
         GLuint GL_u_color_loc;
-        struct gllc_DBG_batch DBG_batch;
-        struct gllc_DBG_batch DBG_batch_interactive;
+        struct gllc_DBG DBG;
+        struct gllc_DBG DBG_interactive;
         mat4 GL_m_proj;
         mat4 GL_m_view;
         mat4 GL_m_model;
         mat4 GL_m_MVP;
-        struct gllc_DBG_batch DBG_batch_screen;
+        struct gllc_DBG DBG_screen;
         mat4 GL_m_proj_screen;
         mat4 GL_m_MVP_screen;
-        struct gllc_DBG *DBG_order[GLLC_DRAW_BUFFERS];
-        struct gllc_DBG *DBG_order_screen[7];
         double scale_factor;
         double dx;
         double dy;
         int width;
         int height;
+        int cursor_x;
+        int cursor_y;
+        int in_selection;
+        double sel_x0;
+        double sel_y0;
+        double sel_x1;
+        double sel_y1;
 };
 
 struct gllc_window *gllc_window_create(void *parent);
@@ -54,5 +62,9 @@ void gllc_window_set_size(struct gllc_window *window, int x, int y, int width, i
 void gllc_window_destroy(struct gllc_window *window);
 
 void gllc_window_redraw(struct gllc_window *window);
+
+void gllc_window_enable_grid(struct gllc_window *window, int enable);
+
+void gllc_window_grid_configure(struct gllc_window *window, double gap_x, double gap_y, double offset_x, double offset_y, float *color);
 
 #endif

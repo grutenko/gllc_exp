@@ -69,17 +69,16 @@ void gllc_polyline_build(const double *V, size_t V_count, struct gllc_DE *DE_bou
         }
 
         struct gllc_DE_config DE_config = {
-            .skip = NULL,
-            .v = G_vertices,
-            .i = G_indices,
-            .v_count = V_count,
-            .i_count = V_count,
+            .V = G_vertices,
+            .I = G_indices,
+            .V_count = V_count,
+            .I_count = V_count,
             .color = color};
 
         gllc_DE_update(DE_bound, &DE_config);
 }
 
-static void build(struct gllc_block_entity *ent, struct gllc_DBD_batch *DBD_batch)
+static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 {
         int color = gllc_block_entity_color(ent);
         int fcolor = gllc_block_entity_fcolor(ent);
@@ -114,14 +113,14 @@ struct gllc_polyline *gllc_polyline_create(struct gllc_block *block, int closed)
 
                 if (closed)
                 {
-                        ent->DE_bound = gllc_DE_create(&block->DBD_batch.GL_line_loop);
+                        ent->DE_bound = gllc_DE_create(&block->DBD, GL_LINE_LOOP);
 
                         if (!ent->DE_bound)
                                 goto _error;
                 }
                 else
                 {
-                        ent->DE_bound = gllc_DE_create(&block->DBD_batch.GL_line_strip);
+                        ent->DE_bound = gllc_DE_create(&block->DBD, GL_LINE_STRIP);
                         if (!ent->DE_bound)
                                 goto _error;
                 }

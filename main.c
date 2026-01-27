@@ -81,7 +81,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             NULL);
 
 #define TIMER_ID 1
-#define TIMER_INTERVAL 512
+#define TIMER_INTERVAL 64
 
         // после создания окна:
         //SetTimer(hwnd, TIMER_ID, TIMER_INTERVAL, NULL);
@@ -91,7 +91,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         {
                 return EXIT_FAILURE;
         }
-        gllc_window_set_clear_color(w, 255, 255, 255);
+        gllc_window_set_clear_color(w, 0, 0, 0);
+        float color[4] = {
+            0.2f,
+            0.2f,
+            0.2f,
+            1.0f,
+        };
+        gllc_window_grid_configure(w, 20.0f, 20.0f, 0.0f, 0.0f, color);
 
         struct gllc_drawing *hDrw = gllc_drawing_create();
         struct gllc_block *hBlock = gllc_drw_add_block(hDrw, "Model Space", 0.0f, 0.0f);
@@ -108,6 +115,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         double x1 = x0 + (double)grid_size;
                         double y1 = y0 + (double)grid_size;
                         struct gllc_rect *hRect = gllc_block_add_rect(hBlock, x0, y0, x1, y1);
+                        gllc_block_entity_set_color((struct gllc_block_entity *)hRect, 50 << 16 | 50 << 8 | 255);
                 }
         }
 
@@ -118,22 +126,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
         MSG msg;
         int running = 1;
+
         while (running)
         {
+                // Ждём, пока в очереди не появится сообщение
+                WaitMessage();
+
                 while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
                 {
                         if (msg.message == WM_QUIT)
                         {
-                                running = false;
+                                running = 0;
                                 break;
                         }
 
                         TranslateMessage(&msg);
                         DispatchMessage(&msg);
                 }
-
-                if (!running)
-                        break;
         }
 
         gllc_window_destroy(w);

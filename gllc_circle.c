@@ -1,6 +1,7 @@
 #include "gllc_circle.h"
 #include "gllc_block.h"
 #include "gllc_block_entity.h"
+#include "gllc_draw_buffer.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -30,17 +31,16 @@ void gllc_circle_build(double x, double y, double radius, GLfloat *color, struct
         }
 
         struct gllc_DE_config DE_conf = {
-            .skip = NULL,
-            .v = V,
-            .i = I,
+            .V = V,
+            .I = I,
             .color = color,
-            .v_count = N,
-            .i_count = N};
+            .V_count = N,
+            .I_count = N};
 
         gllc_DE_update(DE_bound, &DE_conf);
 }
 
-static void build(struct gllc_block_entity *ent, struct gllc_DBD_batch *DBD_batch)
+static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 {
         int color = gllc_block_entity_color(ent);
         int fcolor = gllc_block_entity_fcolor(ent);
@@ -81,7 +81,7 @@ struct gllc_circle *gllc_circle_create(struct gllc_block *block, double x, doubl
                 ent->__ent.block = block;
                 ent->__ent.modified = 1;
 
-                ent->DE_bound = gllc_DE_create(&block->DBD_batch.GL_line_loop);
+                ent->DE_bound = gllc_DE_create(&block->DBD, GL_LINE_LOOP);
 
                 if (!ent->DE_bound)
                         goto _error;

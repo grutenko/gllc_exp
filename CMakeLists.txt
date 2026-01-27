@@ -64,6 +64,8 @@ set(SOURCES glad.c
   gllc_rect.c
   gllc_circle.c
   gllc_window_grid.c
+  gllc_window_cursor.c
+  gllc_window_selection.c
   ${GENERATED_HEADERS}
   ${GENERATED_FONT_HEADERS}
   stb_truetype.c
@@ -71,7 +73,7 @@ set(SOURCES glad.c
 
 add_executable(gllc_exp ${SOURCES})
 
-target_link_libraries(gllc_exp PRIVATE cglm freetype glfw)
+target_link_libraries(gllc_exp PRIVATE cglm freetype redwg)
 
 target_include_directories(gllc_exp PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 

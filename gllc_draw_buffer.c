@@ -10,7 +10,7 @@ static void push_DE(struct gllc_DBD *DBD, struct gllc_DE *DE)
 {
         assert(DBD);
         assert(DE);
-        assert(!DE->DBD);
+
         if (!DBD->DE_head)
         {
                 DBD->DE_head = DE;
@@ -24,27 +24,25 @@ static void push_DE(struct gllc_DBD *DBD, struct gllc_DE *DE)
         DBD->DE_count++;
 }
 
-struct gllc_DE *gllc_DE_create(struct gllc_DBD *DBD)
+struct gllc_DE *gllc_DE_create(struct gllc_DBD *DBD, GLenum GL_type)
 {
         struct gllc_DE *DE = malloc(sizeof(struct gllc_DE));
         if (DE)
         {
-                DE->DBD = 0ULL;
-                DE->skip = 0;
-                DE->color[0] = 0.0f;
-                DE->color[1] = 0.0f;
-                DE->color[2] = 0.0f;
-                DE->color[3] = 0.0f;
-                DE->i_cache = 0ULL;
-                DE->i_cache_count = 0ULL;
-                DE->v_cache = 0ULL;
-                DE->v_cache_count = 0ULL;
-                DE->next = 0ULL;
-                DE->prev = 0ULL;
-                push_DE(DBD, DE);
+                memset(DE, 0, sizeof(struct gllc_DE));
+
+                DE->GL_type = GL_type;
                 DE->DBD = DBD;
+
+                push_DE(DBD, DE);
         }
         return DE;
+}
+
+void gllc_DE_skip(struct gllc_DE *DE, int skip)
+{
+        DE->skip = skip;
+        DE->DBD->modified = 1;
 }
 
 int gllc_DE_update(struct gllc_DE *DE, struct gllc_DE_config *DE_config)
@@ -55,30 +53,25 @@ int gllc_DE_update(struct gllc_DE *DE, struct gllc_DE_config *DE_config)
         GLfloat *V_new = NULL;
         GLuint *I_new = NULL;
 
-        if (DE_config->skip)
+        if (DE_config->V)
         {
-                DE->skip = *DE_config->skip;
-        }
-
-        if (DE_config->v)
-        {
-                size_t size = sizeof(GLfloat) * 2 * DE_config->v_count;
+                size_t size = sizeof(GLfloat) * 2 * DE_config->V_count;
                 V_new = malloc(size);
                 if (!V_new)
                         return 0;
-                memcpy(V_new, DE_config->v, size);
+                memcpy(V_new, DE_config->V, size);
         }
 
-        if (DE_config->i)
+        if (DE_config->I)
         {
-                size_t size = sizeof(GLuint) * DE_config->i_count;
+                size_t size = sizeof(GLuint) * DE_config->I_count;
                 I_new = malloc(size);
                 if (!I_new)
                 {
                         free(V_new);
                         return 0;
                 }
-                memcpy(I_new, DE_config->i, size);
+                memcpy(I_new, DE_config->I, size);
         }
 
         if (DE_config->color)
@@ -91,16 +84,16 @@ int gllc_DE_update(struct gllc_DE *DE, struct gllc_DE_config *DE_config)
 
         if (V_new)
         {
-                free(DE->v_cache);
-                DE->v_cache = V_new;
-                DE->v_cache_count = DE_config->v_count;
+                free(DE->V_cache);
+                DE->V_cache = V_new;
+                DE->V_cache_count = DE_config->V_count;
         }
 
         if (I_new)
         {
-                free(DE->i_cache);
-                DE->i_cache = I_new;
-                DE->i_cache_count = DE_config->i_count;
+                free(DE->I_cache);
+                DE->I_cache = I_new;
+                DE->I_cache_count = DE_config->I_count;
         }
 
         if (DE->DBD)
@@ -109,27 +102,14 @@ int gllc_DE_update(struct gllc_DE *DE, struct gllc_DE_config *DE_config)
         return 1;
 }
 
-void gllc_DBD_init(struct gllc_DBD *DBD, int GL_type)
+void gllc_DBD_init(struct gllc_DBD *DBD)
 {
         memset(DBD, 0, sizeof(struct gllc_DBD));
-        DBD->GL_type = GL_type;
 }
 
-void gllc_DBD_batch_init(struct gllc_DBD_batch *DBD_batch)
-{
-        gllc_DBD_init(&DBD_batch->GL_lines, GL_LINES);
-        gllc_DBD_init(&DBD_batch->GL_line_strip, GL_LINE_STRIP);
-        gllc_DBD_init(&DBD_batch->GL_line_loop, GL_LINE_LOOP);
-        gllc_DBD_init(&DBD_batch->GL_triangles, GL_TRIANGLES);
-        gllc_DBD_init(&DBD_batch->GL_triangle_strip, GL_TRIANGLE_STRIP);
-        gllc_DBD_init(&DBD_batch->GL_triangle_fan, GL_TRIANGLE_FAN);
-        gllc_DBD_init(&DBD_batch->GL_points, GL_POINTS);
-}
-
-void gllc_DBG_init(struct gllc_DBG *DBG, GLenum GL_type)
+void gllc_DBG_init(struct gllc_DBG *DBG)
 {
         memset(DBG, 0, sizeof(*DBG));
-        DBG->GL_type = GL_type;
         glGenVertexArrays(1, &DBG->VAO);
         glBindVertexArray(DBG->VAO);
 
@@ -148,17 +128,6 @@ void gllc_DBG_init(struct gllc_DBG *DBG, GLenum GL_type)
         glBindVertexArray(0);
 }
 
-void gllc_DBG_batch_init(struct gllc_DBG_batch *DBG_batch)
-{
-        gllc_DBG_init(&DBG_batch->GL_lines, GL_LINES);
-        gllc_DBG_init(&DBG_batch->GL_line_strip, GL_LINE_STRIP);
-        gllc_DBG_init(&DBG_batch->GL_line_loop, GL_LINE_LOOP);
-        gllc_DBG_init(&DBG_batch->GL_triangles, GL_TRIANGLES);
-        gllc_DBG_init(&DBG_batch->GL_triangle_strip, GL_TRIANGLE_STRIP);
-        gllc_DBG_init(&DBG_batch->GL_triangle_fan, GL_TRIANGLE_FAN);
-        gllc_DBG_init(&DBG_batch->GL_points, GL_POINTS);
-}
-
 void gllc_DBD_destroy(struct gllc_DBD *DBD)
 {
         struct gllc_DE *DE = DBD->DE_head;
@@ -172,17 +141,6 @@ void gllc_DBD_destroy(struct gllc_DBD *DBD)
         DBD->DE_tail = NULL;
         DBD->DE_count = 0;
         DBD->modified = 1;
-}
-
-void gllc_DBD_batch_destroy(struct gllc_DBD_batch *DBD_batch)
-{
-        gllc_DBD_destroy(&DBD_batch->GL_line_loop);
-        gllc_DBD_destroy(&DBD_batch->GL_line_strip);
-        gllc_DBD_destroy(&DBD_batch->GL_lines);
-        gllc_DBD_destroy(&DBD_batch->GL_triangle_strip);
-        gllc_DBD_destroy(&DBD_batch->GL_triangles);
-        gllc_DBD_destroy(&DBD_batch->GL_triangle_fan);
-        gllc_DBD_destroy(&DBD_batch->GL_points);
 }
 
 void gllc_DBG_destroy(struct gllc_DBG *DBG)
@@ -200,25 +158,15 @@ void gllc_DBG_destroy(struct gllc_DBG *DBG)
                 glDeleteVertexArrays(1, &DBG->VAO);
         }
         free(DBG->DE);
+        free(DBG->V);
+        free(DBG->I);
         memset(DBG, 0, sizeof(struct gllc_DBG));
-}
-
-void gllc_DBG_batch_destroy(struct gllc_DBG_batch *DBG_batch)
-{
-        gllc_DBG_destroy(&DBG_batch->GL_lines);
-        gllc_DBG_destroy(&DBG_batch->GL_line_strip);
-        gllc_DBG_destroy(&DBG_batch->GL_line_loop);
-        gllc_DBG_destroy(&DBG_batch->GL_triangles);
-        gllc_DBG_destroy(&DBG_batch->GL_triangle_strip);
-        gllc_DBG_destroy(&DBG_batch->GL_triangle_fan);
-        gllc_DBG_destroy(&DBG_batch->GL_points);
 }
 
 void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
 {
         assert(DBG);
         assert(DBD);
-        assert(DBG->GL_type == DBD->GL_type);
 
         if (!DBD->modified)
                 return;
@@ -231,8 +179,8 @@ void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
         {
                 if (!DE->skip)
                 {
-                        VBO_size += sizeof(GLfloat) * 2 * DE->v_cache_count;
-                        EBO_size += sizeof(GLuint) * DE->i_cache_count;
+                        VBO_size += sizeof(GLfloat) * 2 * DE->V_cache_count;
+                        EBO_size += sizeof(GLuint) * DE->I_cache_count;
                         DE_size++;
                 }
                 DE = DE->next;
@@ -245,6 +193,30 @@ void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
                         return;
                 DBG->DE = DE_new;
                 DBG->DE_cap = DE_size;
+        }
+
+        if (DBG->V_size < VBO_size)
+        {
+                void *new_V = malloc(VBO_size);
+                if (!new_V)
+                        return;
+
+                free(DBG->V);
+
+                DBG->V = new_V;
+                DBG->V_size = VBO_size;
+        }
+
+        if (DBG->I_size < EBO_size)
+        {
+                void *new_I = malloc(EBO_size);
+                if (!new_I)
+                        return;
+
+                free(DBG->I);
+
+                DBG->I = new_I;
+                DBG->I_size = EBO_size;
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, DBG->VBO);
@@ -267,22 +239,23 @@ void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
                         continue;
                 }
 
-                glBufferSubData(GL_ARRAY_BUFFER, VBO_offset, sizeof(GLfloat) * 2 * DE->v_cache_count, DE->v_cache);
+                memcpy(DBG->V + VBO_offset, DE->V_cache, sizeof(GLfloat) * 2 * DE->V_cache_count);
 
-                for (j = 0; j < DE->i_cache_count; j++)
+                for (j = 0; j < DE->I_cache_count; j++)
                 {
-                        DE->i_cache[j] += V_nth;
+                        DE->I_cache[j] += V_nth;
                 }
 
-                glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, EBO_offset, sizeof(GLuint) * DE->i_cache_count, DE->i_cache);
+                memcpy(DBG->I + EBO_offset, DE->I_cache, sizeof(GLuint) * DE->I_cache_count);
 
-                for (j = 0; j < DE->i_cache_count; j++)
+                for (j = 0; j < DE->I_cache_count; j++)
                 {
-                        DE->i_cache[j] -= V_nth;
+                        DE->I_cache[j] -= V_nth;
                 }
 
+                DBG->DE[i].GL_type = DE->GL_type;
                 DBG->DE[i].offset = I_nth;
-                DBG->DE[i].size = DE->i_cache_count;
+                DBG->DE[i].size = DE->I_cache_count;
                 DBG->DE[i].color[0] = DE->color[0];
                 DBG->DE[i].color[1] = DE->color[1];
                 DBG->DE[i].color[2] = DE->color[2];
@@ -292,13 +265,16 @@ void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
                 DBG->DE[i].tex_u1 = 0;
                 DBG->DE[i].tex_v0 = 0;
                 DBG->DE[i].tex_v1 = 0;
-                VBO_offset += sizeof(GLfloat) * 2 * DE->v_cache_count;
-                EBO_offset += sizeof(GLuint) * DE->i_cache_count;
-                V_nth += DE->v_cache_count;
-                I_nth += DE->i_cache_count;
+                VBO_offset += sizeof(GLfloat) * 2 * DE->V_cache_count;
+                EBO_offset += sizeof(GLuint) * DE->I_cache_count;
+                V_nth += DE->V_cache_count;
+                I_nth += DE->I_cache_count;
                 i++;
                 DE = DE->next;
         }
+
+        glBufferSubData(GL_ARRAY_BUFFER, 0, VBO_size, DBG->V);
+        glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, EBO_size, DBG->I);
 
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -306,17 +282,6 @@ void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
         DBG->DE_size = DE_size;
 
         DBD->modified = 0;
-}
-
-void gllc_DBG_batch_build(struct gllc_DBG_batch *DBG_batch, struct gllc_DBD_batch *DBD_batch)
-{
-        gllc_DBG_build(&DBG_batch->GL_line_loop, &DBD_batch->GL_line_loop);
-        gllc_DBG_build(&DBG_batch->GL_line_strip, &DBD_batch->GL_line_strip);
-        gllc_DBG_build(&DBG_batch->GL_lines, &DBD_batch->GL_lines);
-        gllc_DBG_build(&DBG_batch->GL_triangles, &DBD_batch->GL_triangles);
-        gllc_DBG_build(&DBG_batch->GL_triangle_strip, &DBD_batch->GL_triangle_strip);
-        gllc_DBG_build(&DBG_batch->GL_triangle_fan, &DBD_batch->GL_triangle_fan);
-        gllc_DBG_build(&DBG_batch->GL_points, &DBD_batch->GL_points);
 }
 
 static void remove_DE(struct gllc_DBD *DBD, struct gllc_DE *DE)
@@ -345,20 +310,9 @@ void gllc_DE_destroy(struct gllc_DE *DE)
 {
         if (!DE)
                 return;
-        if (DE->v_cache)
-                free(DE->v_cache);
-        if (DE->i_cache)
-                free(DE->i_cache);
+        if (DE->V_cache)
+                free(DE->V_cache);
+        if (DE->I_cache)
+                free(DE->I_cache);
         remove_DE(DE->DBD, DE);
-}
-
-void gllc_DBD_batch_modified(struct gllc_DBD_batch *DBD_batch)
-{
-        DBD_batch->GL_lines.modified = 1;
-        DBD_batch->GL_line_strip.modified = 1;
-        DBD_batch->GL_line_loop.modified = 1;
-        DBD_batch->GL_triangles.modified = 1;
-        DBD_batch->GL_triangle_strip.modified = 1;
-        DBD_batch->GL_triangle_fan.modified = 1;
-        DBD_batch->GL_points.modified = 1;
 }

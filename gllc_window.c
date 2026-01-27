@@ -3,11 +3,13 @@
 #include "gllc_block.h"
 #include "gllc_draw_buffer.h"
 #include "gllc_object.h"
+#include "gllc_window_cursor.h"
 #include "gllc_window_grid.h"
 #include "gllc_window_native.h"
 
 #include "gllc_fragment_shader.h"
 #include "gllc_vertex_shader.h"
+#include "gllc_window_selection.h"
 
 #include <cglm/call.h>
 #include <cglm/cglm.h>
@@ -138,6 +140,8 @@ static struct drag_state g_drag = {0};
 
 static void on_mouse_click(struct gllc_WN *wn, int x, int y, int mode, int action, void *USER_1)
 {
+        struct gllc_window *w = (struct gllc_window *)USER_1;
+
         if (mode == 3)
         {
                 if (action == 1)
@@ -151,16 +155,32 @@ static void on_mouse_click(struct gllc_WN *wn, int x, int y, int mode, int actio
                         g_drag.dragging = 0;
                 }
         }
+        else if (mode == 1)
+        {
+                if (action == 1)
+                {
+                        w->in_selection = 1;
+                        w->sel_x0 = (x - (int)(w->width / 2)) * w->scale_factor - w->dx;
+                        w->sel_y0 = (y - (int)(w->height / 2)) * w->scale_factor - w->dy;
+                        w->sel_x1 = w->sel_x0 + 1.0f;
+                        w->sel_y1 = w->sel_x0 + 1.0f;
+                }
+                else if (action == 0)
+                {
+                        w->in_selection = 0;
+                }
+        }
 }
 
 static void on_mouse_move(struct gllc_WN *wn, int x, int y, void *USER_1)
 {
+        struct gllc_window *w = (struct gllc_window *)USER_1;
+
         if (g_drag.dragging)
         {
                 int dx = x - g_drag.last_x;
                 int dy = y - g_drag.last_y;
 
-                struct gllc_window *w = (struct gllc_window *)USER_1;
                 w->dx += dx * w->scale_factor;
                 w->dy += dy * w->scale_factor;
 
@@ -168,19 +188,33 @@ static void on_mouse_move(struct gllc_WN *wn, int x, int y, void *USER_1)
                 g_drag.last_y = y;
 
                 render_camera(w);
-
-                gllc_WN_dirty(wn);
         }
+
+        if (w->in_selection)
+        {
+                w->sel_x1 = (x - (int)(w->width / 2)) * w->scale_factor - w->dx;
+                w->sel_y1 = (y - (int)(w->height / 2)) * w->scale_factor - w->dy;
+
+                printf("sel_x1 = %lf, sel_y1 = %lf\n", w->sel_x1, w->sel_y1);
+        }
+
+        w->cursor_x = x;
+        w->cursor_y = y;
+
+        gllc_WN_dirty(wn);
 }
 
 static void on_mouse_scroll(struct gllc_WN *wn, int dx, int dy, void *USER_1)
 {
         struct gllc_window *w = (struct gllc_window *)USER_1;
 
-        if (dy > 2.0f)
-                dy = 2.0f;
-        if (dy < -10.0f)
-                dy = -2.0f;
+        if (dy >= 10)
+                dy = 2;
+        if (dy <= -10)
+                dy = -2;
+
+        if ((w->scale_factor > 300.0f && dy > 0) || (w->scale_factor < 0.005f && dy < 0))
+                return;
 
         double old_scale = w->scale_factor;
         w->scale_factor *= 1.0f + ((double)dy * 0.1);
@@ -206,24 +240,51 @@ static size_t draw_DBG(GLuint color_loc, struct gllc_DBG *DBG)
                             DBG->DE[i].color[1],
                             DBG->DE[i].color[2],
                             DBG->DE[i].color[3]);
-                glDrawElements(DBG->GL_type,
-                               DBG->DE[i].size,
-                               GL_UNSIGNED_INT,
-                               (void *)(sizeof(GLuint) * DBG->DE[i].offset));
+                glDrawElements(DBG->DE[i].GL_type, DBG->DE[i].size, GL_UNSIGNED_INT, (void *)(sizeof(GLuint) * DBG->DE[i].offset));
         }
         return DBG->DE_size;
+}
+
+void CheckOpenGLError(const char *context)
+{
+        GLenum err;
+        while ((err = glGetError()) != GL_NO_ERROR)
+        {
+                const char *err_str = "UNKNOWN";
+                switch (err)
+                {
+                case GL_INVALID_ENUM:
+                        err_str = "GL_INVALID_ENUM";
+                        break;
+                case GL_INVALID_VALUE:
+                        err_str = "GL_INVALID_VALUE";
+                        break;
+                case GL_INVALID_OPERATION:
+                        err_str = "GL_INVALID_OPERATION";
+                        break;
+                case GL_STACK_OVERFLOW:
+                        err_str = "GL_STACK_OVERFLOW";
+                        break;
+                case GL_STACK_UNDERFLOW:
+                        err_str = "GL_STACK_UNDERFLOW";
+                        break;
+                case GL_OUT_OF_MEMORY:
+                        err_str = "GL_OUT_OF_MEMORY";
+                        break;
+                case GL_INVALID_FRAMEBUFFER_OPERATION:
+                        err_str = "GL_INVALID_FRAMEBUFFER_OPERATION";
+                        break;
+                }
+                printf("OpenGL Error [%s]: %s (0x%X)\n", context, err_str, err);
+        }
 }
 
 static void draw(struct gllc_window *w)
 {
         if (w->block)
         {
-                gllc_DBG_batch_build(&w->DBG_batch, &w->block->DBD_batch);
+                gllc_DBG_build(&w->DBG, &w->block->DBD);
         }
-
-        int i;
-        mat4 m_identity;
-        glm_mat4_identity(m_identity);
 
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -236,38 +297,29 @@ static void draw(struct gllc_window *w)
                 double y0 = -(int)(w->height / 2) * w->scale_factor - w->dy;
                 double x1 = (int)(w->width / 2) * w->scale_factor - w->dx;
                 double y1 = (int)(w->height / 2) * w->scale_factor - w->dy;
-                gllc_W_grid_draw(&w->grid, w->GL_u_color_loc, x0, y0, x1, y1, w->scale_factor);
+                gllc_W_grid_draw(&w->grid, w->GL_u_color_loc, x0, y0, x1, y1, w->scale_factor, w->clear_color);
         }
 
-        size_t draw_calls = 0;
+        glBindVertexArray(w->DBG.VAO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG.EBO);
+        draw_DBG(w->GL_u_color_loc, &w->DBG);
 
-        for (i = 0; i < GLLC_DRAW_BUFFERS; i++)
+        /*glBindVertexArray(w->DBG_interactive.VAO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_interactive.EBO);
+        draw_DBG(w->GL_u_color_loc, &w->DBG_interactive);*/
+
+        if (w->in_selection)
         {
-                if (w->DBG_order[i]->DE_size == 0)
-                {
-                        continue;
-                }
-
-                glBindVertexArray(w->DBG_order[i]->VAO);
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_order[i]->EBO);
-
-                draw_calls += draw_DBG(w->GL_u_color_loc, w->DBG_order[i]);
+                gllc_W_selection_draw(&w->selection, w->GL_u_color_loc, w->sel_x0, w->sel_y0, w->sel_x1, w->sel_y1);
         }
 
         glUniformMatrix4fv(w->GL_u_MVP_loc, 1, GL_FALSE, (const float *)w->GL_m_MVP_screen);
 
-        for (i = 0; i < 7; i++)
-        {
-                if (w->DBG_order_screen[i]->DE_size == 0)
-                {
-                        continue;
-                }
+        /*glBindVertexArray(w->DBG_screen.VAO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_screen.EBO);
+        draw_DBG(w->GL_u_color_loc, &w->DBG_screen);*/
 
-                glBindVertexArray(w->DBG_order_screen[i]->VAO);
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_order[i]->EBO);
-
-                draw_calls += draw_DBG(w->GL_u_color_loc, w->DBG_order_screen[i]);
-        }
+        gllc_W_cursor_draw(&w->cursor, w->GL_u_color_loc, w->cursor_x, w->cursor_y, w->width, w->height);
 
         gllc_WN_swap_buffers(w->native);
 }
@@ -283,31 +335,6 @@ static void on_size(struct gllc_WN *wn, int width, int height, void *USER_1)
         ((struct gllc_window *)USER_1)->height = height;
 
         render_camera((struct gllc_window *)USER_1);
-}
-
-static void set_DBG_order(struct gllc_window *w)
-{
-        w->DBG_order[0] = &w->DBG_batch.GL_triangles;
-        w->DBG_order[1] = &w->DBG_batch.GL_triangle_strip;
-        w->DBG_order[2] = &w->DBG_batch.GL_triangle_fan;
-        w->DBG_order[3] = &w->DBG_batch.GL_lines;
-        w->DBG_order[4] = &w->DBG_batch.GL_line_strip;
-        w->DBG_order[5] = &w->DBG_batch.GL_line_loop;
-        w->DBG_order[6] = &w->DBG_batch.GL_points;
-        w->DBG_order[7] = &w->DBG_batch_interactive.GL_triangles;
-        w->DBG_order[8] = &w->DBG_batch_interactive.GL_triangle_strip;
-        w->DBG_order[9] = &w->DBG_batch_interactive.GL_triangle_fan;
-        w->DBG_order[10] = &w->DBG_batch_interactive.GL_lines;
-        w->DBG_order[11] = &w->DBG_batch_interactive.GL_line_strip;
-        w->DBG_order[12] = &w->DBG_batch_interactive.GL_line_loop;
-        w->DBG_order[13] = &w->DBG_batch_interactive.GL_points;
-        w->DBG_order_screen[0] = &w->DBG_batch_screen.GL_triangles;
-        w->DBG_order_screen[1] = &w->DBG_batch_screen.GL_triangle_strip;
-        w->DBG_order_screen[2] = &w->DBG_batch_screen.GL_triangle_fan;
-        w->DBG_order_screen[3] = &w->DBG_batch_screen.GL_lines;
-        w->DBG_order_screen[4] = &w->DBG_batch_screen.GL_line_strip;
-        w->DBG_order_screen[5] = &w->DBG_batch_screen.GL_line_loop;
-        w->DBG_order_screen[6] = &w->DBG_batch_screen.GL_points;
 }
 
 struct gllc_block *gllc_window_get_block(struct gllc_window *window)
@@ -343,10 +370,10 @@ struct gllc_window *gllc_window_create(void *parent)
         gllc_WN_make_context_current(w->native);
 
         gllc_W_grid_init(&w->grid);
-        w->grid.color[0] = 0.9f;
-        w->grid.color[1] = 0.9f;
-        w->grid.color[2] = 0.9f;
-        w->grid.color[3] = 1.0f;
+        w->grid.color[0] = 0.5f;
+        w->grid.color[1] = 0.5f;
+        w->grid.color[2] = 0.5f;
+        w->grid.color[3] = 0.3f;
         w->grid_used = 1;
 
         if (!gladLoadGL())
@@ -357,6 +384,9 @@ struct gllc_window *gllc_window_create(void *parent)
         printf("Renderer: %s.\n", glGetString(GL_RENDERER));
         printf("OpenGL version supported %s.\n", glGetString(GL_VERSION));
 
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendEquation(GL_FUNC_ADD);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         w->GL_program = load_GL_program();
@@ -371,6 +401,11 @@ struct gllc_window *gllc_window_create(void *parent)
         glm_mat4_identity(w->GL_m_proj);
         glm_mat4_identity(w->GL_m_proj_screen);
 
+        w->clear_color[0] = 0.0f;
+        w->clear_color[1] = 0.0f;
+        w->clear_color[2] = 0.0f;
+        w->clear_color[3] = 1.0f;
+
         int width, height;
         gllc_WN_get_size(w->native, &width, &height);
         w->width = width;
@@ -383,11 +418,9 @@ struct gllc_window *gllc_window_create(void *parent)
 
         load_GL_uniform_loc(w);
 
-        gllc_DBG_batch_init(&w->DBG_batch);
-        gllc_DBG_batch_init(&w->DBG_batch_interactive);
-        gllc_DBG_batch_init(&w->DBG_batch_screen);
-
-        set_DBG_order(w);
+        gllc_DBG_init(&w->DBG);
+        gllc_DBG_init(&w->DBG_interactive);
+        gllc_DBG_init(&w->DBG_screen);
 
         gllc_WN_make_context_current(0);
 
@@ -414,30 +447,48 @@ void gllc_window_set_clear_color(struct gllc_window *window, int r, int g, int b
         gllc_WN_make_context_current(window->native);
 
         glClearColor((GLfloat)r / 255, (GLfloat)g / 255, (GLfloat)b / 255, 1.0f);
+
+        window->clear_color[0] = (GLfloat)r / 255;
+        window->clear_color[1] = (GLfloat)g / 255;
+        window->clear_color[2] = (GLfloat)b / 255;
+        window->clear_color[3] = 1.0f;
 }
 
 void gllc_window_set_size(struct gllc_window *window, int x, int y, int width, int height)
 {
         gllc_WN_set_size(window->native, x, y, width, height);
+
+        gllc_WN_dirty(window->native);
 }
 
 void gllc_window_set_block(struct gllc_window *window,
                            struct gllc_block *block)
 {
         window->block = block;
-        if (window->block)
-        {
-                gllc_DBD_batch_modified(&window->block->DBD_batch);
-        }
 }
 void gllc_window_destroy(struct gllc_window *window)
 {
         gllc_WN_make_context_current(window->native);
-        gllc_DBG_batch_destroy(&window->DBG_batch);
-        gllc_DBG_batch_destroy(&window->DBG_batch_interactive);
-        gllc_DBG_batch_destroy(&window->DBG_batch_screen);
+        gllc_DBG_destroy(&window->DBG);
+        gllc_DBG_destroy(&window->DBG_interactive);
+        gllc_DBG_destroy(&window->DBG_screen);
         gllc_W_grid_cleanup(&window->grid);
         gllc_WN_destroy(window->native);
 
         free(window);
+}
+
+void gllc_window_enable_grid(struct gllc_window *window, int enable)
+{
+        window->grid_used = enable;
+}
+
+void gllc_window_grid_configure(struct gllc_window *window, double gap_x, double gap_y, double offset_x, double offset_y, float *color)
+{
+        window->grid.offset.x = offset_x;
+        window->grid.offset.y = offset_y;
+        window->grid.gap.x = gap_x;
+        window->grid.gap.y = gap_y;
+
+        memcpy(window->grid.color, color, sizeof(float) * 4);
 }

@@ -27,7 +27,7 @@ struct gllc_block *gllc_block_create(struct gllc_drawing *drawing,
                 block->dy = dy;
                 block->props.color = 0;
                 block->props.fcolor = 0;
-                gllc_DBD_batch_init(&block->DBD_batch);
+                gllc_DBD_init(&block->DBD);
         }
         return block;
 }
@@ -105,7 +105,7 @@ void gllc_block_update(struct gllc_block *block)
         {
                 if (ent->modified)
                 {
-                        ent->build(ent, &block->DBD_batch);
+                        ent->build(ent, &block->DBD);
                 }
                 ent = ent->next;
         }
@@ -120,7 +120,7 @@ void gllc_block_destroy(struct gllc_block *block)
                 gllc_block_entity_destroy(ent);
                 ent = next;
         }
-        gllc_DBD_batch_destroy(&block->DBD_batch);
+        gllc_DBD_destroy(&block->DBD);
         gllc_object_cleanup(&block->__obj);
         free(block);
 }

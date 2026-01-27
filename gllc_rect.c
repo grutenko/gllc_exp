@@ -33,17 +33,16 @@ void gllc_rect_build(double x0, double y0, double x1, double y1, GLfloat *color,
         GLuint I[] = {0, 1, 2, 3};
 
         struct gllc_DE_config DE_conf = {
-            .skip = NULL,
-            .v = V,
-            .i = I,
+            .V = V,
+            .I = I,
             .color = color,
-            .v_count = 4,
-            .i_count = 4};
+            .V_count = 4,
+            .I_count = 4};
 
         gllc_DE_update(DE_bound, &DE_conf);
 }
 
-static void build(struct gllc_block_entity *ent, struct gllc_DBD_batch *DBD_batch)
+static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 {
         int color = gllc_block_entity_color(ent);
         int fcolor = gllc_block_entity_fcolor(ent);
@@ -85,7 +84,7 @@ struct gllc_rect *gllc_rect_create(struct gllc_block *block, double x0, double y
                 ent->__ent.block = block;
                 ent->__ent.modified = 1;
 
-                ent->DE_bound = gllc_DE_create(&block->DBD_batch.GL_line_loop);
+                ent->DE_bound = gllc_DE_create(&block->DBD, GL_LINE_LOOP);
 
                 if (!ent->DE_bound)
                         goto _error;
