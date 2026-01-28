@@ -6,6 +6,7 @@
 #include "gllc_polyline.h"
 #include "gllc_rect.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -40,6 +41,8 @@ struct gllc_block_entity *gllc_block_get_first_ent(struct gllc_block *block)
 void gllc_block_remove_ent(struct gllc_block *block,
                            struct gllc_block_entity *ent)
 {
+        assert(block == ent->block);
+
         if (ent->block != block)
                 return;
         if (ent->prev)
@@ -52,6 +55,7 @@ void gllc_block_remove_ent(struct gllc_block *block,
                 block->ent_tail = ent->prev;
         block->ent_count--;
         ent->block = NULL;
+        block->DBD.modified = 1;
 }
 
 static void push_ent(struct gllc_block *block, struct gllc_block_entity *ent)

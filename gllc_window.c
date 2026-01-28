@@ -10,6 +10,7 @@
 #include "gllc_fragment_shader.h"
 #include "gllc_vertex_shader.h"
 #include "gllc_window_selection.h"
+#include "include/gllc_window_grid.h"
 
 #include <cglm/call.h>
 #include <cglm/cglm.h>
@@ -96,12 +97,12 @@ static GLuint load_GL_program()
         return load_program(V_shader, F_shader);
 }
 
-static void render_camera(struct gllc_window *w)
+static inline void render_camera(struct gllc_window *w)
 {
         float half_w = (float)w->width / 2.0f * w->scale_factor;
         float half_h = (float)w->height / 2.0f * w->scale_factor;
 
-        glm_ortho(-half_w, half_w, half_h, -half_h, -1000.0f, 1000.0f, w->GL_m_proj);
+        glm_ortho(-half_w, half_w, -half_h, half_h, -1000.0f, 1000.0f, w->GL_m_proj);
 
         glm_ortho(0.0f, (float)w->width, (float)w->height, 0.0f, -1.0f, 1.0f, w->GL_m_proj_screen);
 
@@ -113,6 +114,27 @@ static void render_camera(struct gllc_window *w)
         glm_mat4_mul(w->GL_m_MVP, w->GL_m_model, w->GL_m_MVP);
 
         glm_mat4_copy(w->GL_m_proj_screen, w->GL_m_MVP_screen);
+}
+
+static void update_viewport(struct gllc_window *w)
+{
+        render_camera(w);
+
+        struct gllc_W_grid_viewport v = {
+            .x0 = -(int)(w->width / 2) * w->scale_factor - w->dx,
+            .y0 = -(int)(w->height / 2) * w->scale_factor - w->dy,
+            .x1 = (int)(w->width / 2) * w->scale_factor - w->dx,
+            .y1 = (int)(w->height / 2) * w->scale_factor - w->dy,
+            .scale = w->scale_factor};
+
+        struct gllc_W_grid_config conf = {
+            .clear_color = NULL,
+            .color = NULL,
+            .gap = NULL,
+            .offset = NULL,
+            .viewport = &v};
+
+        gllc_W_grid_configure(&w->grid, &conf);
 }
 
 static void load_GL_uniform_loc(struct gllc_window *w)
@@ -160,17 +182,21 @@ static void on_mouse_click(struct gllc_WN *wn, int x, int y, int mode, int actio
                 if (action == 1)
                 {
                         w->in_selection = 1;
-                        w->sel_x0 = (x - (int)(w->width / 2)) * w->scale_factor - w->dx;
-                        w->sel_y0 = (y - (int)(w->height / 2)) * w->scale_factor - w->dy;
-                        w->sel_x1 = w->sel_x0 + 1.0f;
-                        w->sel_y1 = w->sel_x0 + 1.0f;
+                        w->sel_x0 = (double)(x - (int)(w->width / 2)) * w->scale_factor - w->dx;
+                        w->sel_y0 = (double)((w->height - y) - (int)(w->height / 2)) * w->scale_factor - w->dy;
+                        w->sel_x1 = w->sel_x0 + 1.0f * w->scale_factor;
+                        w->sel_y1 = w->sel_y0 + 1.0f * w->scale_factor;
                 }
                 else if (action == 0)
                 {
                         w->in_selection = 0;
                 }
         }
+
+        gllc_WN_dirty(wn);
 }
+
+static void draw(struct gllc_window *w);
 
 static void on_mouse_move(struct gllc_WN *wn, int x, int y, void *USER_1)
 {
@@ -180,28 +206,24 @@ static void on_mouse_move(struct gllc_WN *wn, int x, int y, void *USER_1)
         {
                 int dx = x - g_drag.last_x;
                 int dy = y - g_drag.last_y;
-
-                w->dx += dx * w->scale_factor;
-                w->dy += dy * w->scale_factor;
-
                 g_drag.last_x = x;
                 g_drag.last_y = y;
+                w->dx += dx * w->scale_factor;
+                w->dy -= dy * w->scale_factor;
 
-                render_camera(w);
+                update_viewport(w);
         }
 
         if (w->in_selection)
         {
                 w->sel_x1 = (x - (int)(w->width / 2)) * w->scale_factor - w->dx;
-                w->sel_y1 = (y - (int)(w->height / 2)) * w->scale_factor - w->dy;
-
-                printf("sel_x1 = %lf, sel_y1 = %lf\n", w->sel_x1, w->sel_y1);
+                w->sel_y1 = ((w->height - y) - (int)(w->height / 2)) * w->scale_factor - w->dy;
         }
 
         w->cursor_x = x;
         w->cursor_y = y;
 
-        gllc_WN_dirty(wn);
+        draw(w);
 }
 
 static void on_mouse_scroll(struct gllc_WN *wn, int dx, int dy, void *USER_1)
@@ -223,11 +245,11 @@ static void on_mouse_scroll(struct gllc_WN *wn, int dx, int dy, void *USER_1)
         gllc_WN_get_cursor(wn, &mouse_x, &mouse_y);
 
         w->dx += (mouse_x - (int)(w->width / 2)) * (w->scale_factor - old_scale);
-        w->dy += (mouse_y - (int)(w->height / 2)) * (w->scale_factor - old_scale);
+        w->dy += ((w->height - mouse_y) - (int)(w->height / 2)) * (w->scale_factor - old_scale);
 
-        render_camera((struct gllc_window *)USER_1);
+        update_viewport(w);
 
-        gllc_WN_dirty(wn);
+        draw(w);
 }
 
 static size_t draw_DBG(GLuint color_loc, struct gllc_DBG *DBG)
@@ -281,6 +303,8 @@ void CheckOpenGLError(const char *context)
 
 static void draw(struct gllc_window *w)
 {
+        gllc_WN_make_context_current(w->native);
+
         if (w->block)
         {
                 gllc_DBG_build(&w->DBG, &w->block->DBD);
@@ -289,24 +313,21 @@ static void draw(struct gllc_window *w)
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(w->GL_program);
+
         glUniformMatrix4fv(w->GL_u_MVP_loc, 1, GL_FALSE, (const float *)w->GL_m_MVP);
 
         if (w->grid_used)
         {
-                double x0 = -(int)(w->width / 2) * w->scale_factor - w->dx;
-                double y0 = -(int)(w->height / 2) * w->scale_factor - w->dy;
-                double x1 = (int)(w->width / 2) * w->scale_factor - w->dx;
-                double y1 = (int)(w->height / 2) * w->scale_factor - w->dy;
-                gllc_W_grid_draw(&w->grid, w->GL_u_color_loc, x0, y0, x1, y1, w->scale_factor, w->clear_color);
+                gllc_W_grid_draw(&w->grid, w->GL_u_color_loc);
         }
 
         glBindVertexArray(w->DBG.VAO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG.EBO);
         draw_DBG(w->GL_u_color_loc, &w->DBG);
 
-        /*glBindVertexArray(w->DBG_interactive.VAO);
+        glBindVertexArray(w->DBG_interactive.VAO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_interactive.EBO);
-        draw_DBG(w->GL_u_color_loc, &w->DBG_interactive);*/
+        draw_DBG(w->GL_u_color_loc, &w->DBG_interactive);
 
         if (w->in_selection)
         {
@@ -315,9 +336,9 @@ static void draw(struct gllc_window *w)
 
         glUniformMatrix4fv(w->GL_u_MVP_loc, 1, GL_FALSE, (const float *)w->GL_m_MVP_screen);
 
-        /*glBindVertexArray(w->DBG_screen.VAO);
+        glBindVertexArray(w->DBG_screen.VAO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_screen.EBO);
-        draw_DBG(w->GL_u_color_loc, &w->DBG_screen);*/
+        draw_DBG(w->GL_u_color_loc, &w->DBG_screen);
 
         gllc_W_cursor_draw(&w->cursor, w->GL_u_color_loc, w->cursor_x, w->cursor_y, w->width, w->height);
 
@@ -331,10 +352,14 @@ static void on_paint(struct gllc_WN *wn, void *USER_1)
 
 static void on_size(struct gllc_WN *wn, int width, int height, void *USER_1)
 {
+        gllc_WN_make_context_current(wn);
+
+        glViewport(0, 0, width, height);
+
         ((struct gllc_window *)USER_1)->width = width;
         ((struct gllc_window *)USER_1)->height = height;
 
-        render_camera((struct gllc_window *)USER_1);
+        update_viewport((struct gllc_window *)USER_1);
 }
 
 struct gllc_block *gllc_window_get_block(struct gllc_window *window)
@@ -414,7 +439,7 @@ struct gllc_window *gllc_window_create(void *parent)
 
         printf("Window size: %d, %d.\n", width, height);
 
-        render_camera(w);
+        update_viewport(w);
 
         load_GL_uniform_loc(w);
 
@@ -452,6 +477,11 @@ void gllc_window_set_clear_color(struct gllc_window *window, int r, int g, int b
         window->clear_color[1] = (GLfloat)g / 255;
         window->clear_color[2] = (GLfloat)b / 255;
         window->clear_color[3] = 1.0f;
+
+        struct gllc_W_grid_config conf = {
+            .clear_color = window->clear_color};
+
+        gllc_W_grid_configure(&window->grid, &conf);
 }
 
 void gllc_window_set_size(struct gllc_window *window, int x, int y, int width, int height)
@@ -485,10 +515,10 @@ void gllc_window_enable_grid(struct gllc_window *window, int enable)
 
 void gllc_window_grid_configure(struct gllc_window *window, double gap_x, double gap_y, double offset_x, double offset_y, float *color)
 {
-        window->grid.offset.x = offset_x;
-        window->grid.offset.y = offset_y;
-        window->grid.gap.x = gap_x;
-        window->grid.gap.y = gap_y;
+        window->grid.offset_x = offset_x;
+        window->grid.offset_y = offset_y;
+        window->grid.gap_x = gap_x;
+        window->grid.gap_y = gap_y;
 
         memcpy(window->grid.color, color, sizeof(float) * 4);
 }

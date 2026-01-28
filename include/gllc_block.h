@@ -9,6 +9,7 @@ struct gllc_layer;
 struct gllc_drawing;
 struct gllc_polyline;
 struct gllc_rect;
+struct gllc_QTree_node;
 
 struct gllc_block
 {
@@ -22,6 +23,7 @@ struct gllc_block
         struct gllc_block_entity *ent_head;
         struct gllc_block_entity *ent_tail;
         size_t ent_count;
+        struct gllc_QTree_node *Q_tree;
         struct gllc_layer *layer_head;
         struct gllc_layer *layer_tail;
         size_t layer_count;

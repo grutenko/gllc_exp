@@ -4,6 +4,9 @@ project(gllc_exp C)
 
 include_directories(include)
 
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(LIBREDWG_STATIC ON CACHE BOOL "" FORCE)
+
 add_subdirectory(3rdparty)
 add_subdirectory(tools)
 

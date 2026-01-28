@@ -287,7 +287,7 @@ void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
 static void remove_DE(struct gllc_DBD *DBD, struct gllc_DE *DE)
 {
         assert(DBD);
-        assert(DE);
+        assert(DE); 
         assert(DE->DBD == DBD);
 
         if (DE->prev)
@@ -314,5 +314,8 @@ void gllc_DE_destroy(struct gllc_DE *DE)
                 free(DE->V_cache);
         if (DE->I_cache)
                 free(DE->I_cache);
+
         remove_DE(DE->DBD, DE);
+
+        free(DE);
 }

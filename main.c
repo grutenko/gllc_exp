@@ -11,25 +11,19 @@
 #include <windows.h>
 #include <winuser.h>
 
+#include <dwg.h>
+#include <dwg_api.h>
+
 struct gllc_window *w;
 
 void update_colors(struct gllc_window *w)
 {
         struct gllc_block *hBlock = gllc_window_get_block(w);
         struct gllc_block_entity *ent = gllc_block_get_first_ent(hBlock);
-        while (ent)
+        if (ent)
         {
-                unsigned int border_color = (rand() & 0xFF) << 16  // красный
-                                            | (rand() & 0xFF) << 8 // зеленый
-                                            | (rand() & 0xFF);     // синий
-
-                // случайный цвет заливки
-                unsigned int fill_color = (rand() & 0xFF) << 16 | (rand() & 0xFF) << 8 | (rand() & 0xFF);
-
-                gllc_block_entity_set_color(ent, border_color);
-                gllc_block_entity_set_fcolor(ent, fill_color);
-
-                ent = gllc_block_entity_get_next(ent);
+                gllc_block_remove_ent(hBlock, ent);
+                gllc_block_entity_destroy(ent);
         }
 
         gllc_block_update(hBlock);
@@ -51,6 +45,35 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 return 0;
         }
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+const char *dwg_entity_type_to_string(int type)
+{
+        switch (type)
+        {
+        case DWG_TYPE_LINE:
+                return "LINE";
+        case DWG_TYPE_LWPOLYLINE:
+                return "LWPOLYLINE";
+        case DWG_TYPE_CIRCLE:
+                return "CIRCLE";
+        case DWG_TYPE_ARC:
+                return "ARC";
+        case DWG_TYPE_TEXT:
+                return "TEXT";
+        case DWG_TYPE_MTEXT:
+                return "MTEXT";
+        case DWG_TYPE_INSERT:
+                return "INSERT";
+        case DWG_TYPE_SOLID:
+                return "SOLID";
+        case DWG_TYPE_SHAPE:
+                return "SHAPE";
+        case DWG_TYPE_SPLINE:
+                return "SPLINE";
+        default:
+                return "UNKNOWN";
+        }
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
@@ -84,7 +107,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #define TIMER_INTERVAL 64
 
         // после создания окна:
-        //SetTimer(hwnd, TIMER_ID, TIMER_INTERVAL, NULL);
+        SetTimer(hwnd, TIMER_ID, TIMER_INTERVAL, NULL);
 
         w = gllc_window_create(hwnd);
         if (!w)
@@ -104,8 +127,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         struct gllc_block *hBlock = gllc_drw_add_block(hDrw, "Model Space", 0.0f, 0.0f);
 
         int grid_size = 2;
-        int width = 600;
-        int height = 600;
+        int width = 400;
+        int height = 400;
         for (int y = 0; y < height; y += grid_size)
         {
                 for (int x = 0; x < width; x += grid_size)
@@ -129,7 +152,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
         while (running)
         {
-                // Ждём, пока в очереди не появится сообщение
                 WaitMessage();
 
                 while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))

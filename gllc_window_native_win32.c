@@ -12,6 +12,10 @@ typedef HGLRC WINAPI wglCreateContextAttribsARB_type(HDC hdc, HGLRC hShareContex
                                                      const int *attribList);
 wglCreateContextAttribsARB_type *wglCreateContextAttribsARB;
 
+typedef BOOL WINAPI wglSwapIntervalEXT_type(int interval);
+
+wglSwapIntervalEXT_type *wglSwapIntervalEXT;
+
 #define WGL_CONTEXT_MAJOR_VERSION_ARB 0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB 0x2092
 #define WGL_CONTEXT_PROFILE_MASK_ARB 0x9126
@@ -111,6 +115,7 @@ static int init_opengl_extensions(void)
 
         wglCreateContextAttribsARB = (wglCreateContextAttribsARB_type *)wglGetProcAddress("wglCreateContextAttribsARB");
         wglChoosePixelFormatARB = (wglChoosePixelFormatARB_type *)wglGetProcAddress("wglChoosePixelFormatARB");
+        wglSwapIntervalEXT = (wglSwapIntervalEXT_type *)wglGetProcAddress("wglSwapIntervalEXT");
 
         wglMakeCurrent(dummy_dc, 0);
         wglDeleteContext(dummy_context);
@@ -223,6 +228,7 @@ static void remove_WN(struct gllc_WN *wn)
 static LRESULT CALLBACK window_callback(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 {
         LRESULT result = 0;
+        PAINTSTRUCT ps;
 
         struct gllc_WN *w = G_window_head;
         while (w)
@@ -232,13 +238,9 @@ static LRESULT CALLBACK window_callback(HWND window, UINT msg, WPARAM wparam, LP
                 w = w->next;
         }
 
-        if (w)
-                gllc_WN_make_context_current(w);
-
         switch (msg)
         {
         case WM_PAINT:
-                PAINTSTRUCT ps;
                 BeginPaint(window, &ps);
 
                 if (w && w->on_paint)
@@ -272,9 +274,6 @@ static LRESULT CALLBACK window_callback(HWND window, UINT msg, WPARAM wparam, LP
                         w->on_mouse_click(w, LOWORD(lparam), HIWORD(lparam), 3, 0, w->on_mouse_click_USER_1);
                 return 0;
         case WM_SIZE:
-                if (w)
-                        glViewport(0, 0, LOWORD(lparam), HIWORD(lparam));
-
                 if (w && w->on_size)
                         w->on_size(w, LOWORD(lparam), HIWORD(lparam), w->on_size_USER_1);
 

@@ -6,14 +6,27 @@
 struct gllc_block;
 struct gllc_draw_ent;
 
+enum
+{
+        GLLC_POLYLINE_BULGE = 0,
+        GLLC_POLYLINE_QUAD = 1,
+        GLLC_POLYLINE_CUBIC = 2,
+        GLLC_POLYLINE_BEZIER = 3,
+        GLLC_POLYLINE_SPLINE = 4,
+        GLLC_POLYLINE_ROUND = 5,
+        GLLC_POLYLINE_LINQUAD = 6
+};
+
 struct gllc_polyline
 {
         struct gllc_block_entity __ent;
         double *ver;
         size_t ver_cap;
         size_t ver_size;
-        int closed;
         struct gllc_DE *DE_bound;
+        int closed;
+        int filled;
+        int fit_type;
 };
 
 struct gllc_polyline *gllc_polyline_create(struct gllc_block *block, int closed);
