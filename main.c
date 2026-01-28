@@ -16,6 +16,11 @@
 
 struct gllc_window *w;
 
+double rand_double(double min, double max)
+{
+        return min + ((double)rand() / (double)RAND_MAX) * (max - min);
+}
+
 void update_colors(struct gllc_window *w)
 {
         struct gllc_block *hBlock = gllc_window_get_block(w);
@@ -76,6 +81,14 @@ const char *dwg_entity_type_to_string(int type)
         }
 }
 
+unsigned int rand_color()
+{
+        unsigned char r = rand() % 256;
+        unsigned char g = rand() % 256;
+        unsigned char b = rand() % 256;
+        return (r << 16) | (g << 8) | b;
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
         srand((unsigned int)time(NULL));
@@ -107,7 +120,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #define TIMER_INTERVAL 64
 
         // после создания окна:
-        SetTimer(hwnd, TIMER_ID, TIMER_INTERVAL, NULL);
+        // SetTimer(hwnd, TIMER_ID, TIMER_INTERVAL, NULL);
 
         w = gllc_window_create(hwnd);
         if (!w)
@@ -138,8 +151,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         double x1 = x0 + (double)grid_size;
                         double y1 = y0 + (double)grid_size;
                         struct gllc_rect *hRect = gllc_block_add_rect(hBlock, x0, y0, x1, y1);
-                        gllc_block_entity_set_color((struct gllc_block_entity *)hRect, 50 << 16 | 50 << 8 | 255);
+                        gllc_block_entity_set_color((struct gllc_block_entity *)hRect, 255 << 16 | 255 << 8 | 255);
                 }
+        }
+
+        double x_min = -1000.0, x_max = 1000.0;
+        double y_min = -1000.0, y_max = 1000.0;
+        double r_min = 0.5, r_max = 2.0;
+        int i;
+        for (i = 0; i < 90000; i++)
+        {
+                double x = rand_double(x_min, x_max);
+                double y = rand_double(y_min, y_max);
+                double radius = rand_double(r_min, r_max);
+                struct gllc_circle *hCircle = gllc_block_add_circle(hBlock, x, y, radius);
+                gllc_block_entity_set_color((struct gllc_block_entity *)hCircle, rand_color());
         }
 
         gllc_window_set_block(w, hBlock);

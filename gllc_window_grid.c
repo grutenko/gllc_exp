@@ -156,8 +156,6 @@ void gllc_W_grid_draw(struct gllc_W_grid *grid, GLuint u_color_loc)
             grid->color[2] + (grid->clear_color[2] - grid->color[2]) * 0.5f,
             1.0f};
 
-        glBindBuffer(GL_ARRAY_BUFFER, grid->VBO);
-
         glUniform4f(u_color_loc, color[0], color[1], color[2], color[3]);
         glDrawArrays(GL_LINES, 0, grid->V0_count);
 
