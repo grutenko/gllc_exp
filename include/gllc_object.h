@@ -39,9 +39,6 @@ struct gllc_prop_value
 struct gllc_object
 {
         const struct gllc_prop_def **prop_def;
-        struct gllc_prop_value *prop_values;
-        size_t prop_values_cap;
-        size_t prop_values_size;
 };
 
 void gllc_object_cleanup(struct gllc_object *obj);

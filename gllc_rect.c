@@ -17,7 +17,7 @@ static inline void _swap(double *a, double *b)
         *b = t;
 }
 
-void gllc_rect_build(double x0, double y0, double x1, double y1, GLfloat *color, struct gllc_DE *DE_bound)
+void gllc_rect_build(double x0, double y0, double x1, double y1, GLfloat *color, GLfloat *fcolor, struct gllc_DE *DE_bound, struct gllc_DE *DE_fill, int filled)
 {
         if (x0 > x1)
                 _swap(&x0, &x1);
@@ -29,7 +29,7 @@ void gllc_rect_build(double x0, double y0, double x1, double y1, GLfloat *color,
             (GLfloat)x1, (GLfloat)y0,
             (GLfloat)x1, (GLfloat)y1,
             (GLfloat)x0, (GLfloat)y1};
-            
+
         GLuint I[] = {0, 1, 2, 3};
 
         struct gllc_DE_config DE_conf = {
@@ -40,10 +40,57 @@ void gllc_rect_build(double x0, double y0, double x1, double y1, GLfloat *color,
             .I_count = 4};
 
         gllc_DE_update(DE_bound, &DE_conf);
+
+        if (filled)
+        {
+                GLuint I_fill[] = {
+                    0, 1, 2,
+                    0, 2, 3};
+
+                struct gllc_DE_config DE_conf = {
+                    .V = V,
+                    .I = I_fill,
+                    .color = fcolor,
+                    .V_count = 4,
+                    .I_count = 6};
+
+                gllc_DE_update(DE_fill, &DE_conf);
+        }
 }
 
 static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 {
+        struct gllc_rect *rect = (struct gllc_rect *)ent;
+
+        if (rect->filled)
+        {
+                rect->DE_fill = gllc_DE_create(DBD, GL_TRIANGLES);
+
+                if (!rect->DE_fill)
+                {
+                        return;
+                }
+        }
+        else
+        {
+                if (rect->DE_fill)
+                {
+                        gllc_DE_destroy(rect->DE_fill);
+                }
+
+                rect->DE_fill = NULL;
+        }
+
+        if (!rect->DE_bound)
+        {
+                rect->DE_bound = gllc_DE_create(DBD, GL_LINE_LOOP);
+
+                if (!rect->DE_bound)
+                {
+                        return;
+                }
+        }
+
         int color = gllc_block_entity_color(ent);
         int fcolor = gllc_block_entity_fcolor(ent);
 
@@ -53,13 +100,22 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
             (GLfloat)(color & 0xff) / 255,
             1.0f};
 
+        GLfloat fcolor_[] = {
+            (GLfloat)((fcolor >> 16) & 0xff) / 255,
+            (GLfloat)((fcolor >> 8) & 0xff) / 255,
+            (GLfloat)(fcolor & 0xff) / 255,
+            1.0f};
+
         gllc_rect_build(
-            ((struct gllc_rect *)ent)->x0,
-            ((struct gllc_rect *)ent)->y0,
-            ((struct gllc_rect *)ent)->x1,
-            ((struct gllc_rect *)ent)->y1,
+            rect->x0,
+            rect->y0,
+            rect->x1,
+            rect->y1,
             color_,
-            ((struct gllc_rect *)ent)->DE_bound);
+            fcolor_,
+            rect->DE_bound,
+            rect->DE_fill,
+            rect->filled);
 
         ent->modified = 0;
 }
@@ -71,7 +127,7 @@ static void destruct(struct gllc_block_entity *ent)
                 gllc_DE_destroy(rect->DE_bound);
 }
 
-struct gllc_rect *gllc_rect_create(struct gllc_block *block, double x0, double y0, double x1, double y1)
+struct gllc_rect *gllc_rect_create(struct gllc_block *block, double x0, double y0, double x1, double y1, int filled)
 {
         struct gllc_rect *ent = malloc(sizeof(struct gllc_rect));
         if (ent)
@@ -84,15 +140,11 @@ struct gllc_rect *gllc_rect_create(struct gllc_block *block, double x0, double y
                 ent->__ent.block = block;
                 ent->__ent.modified = 1;
 
-                ent->DE_bound = gllc_DE_create(&block->DBD, GL_LINE_LOOP);
-
-                if (!ent->DE_bound)
-                        goto _error;
-
                 ent->x0 = x0;
                 ent->y0 = y0;
                 ent->x1 = x1;
                 ent->y1 = y1;
+                ent->filled = filled;
         }
         return ent;
 _error:

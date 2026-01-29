@@ -252,11 +252,15 @@ static void on_mouse_scroll(struct gllc_WN *wn, int dx, int dy, void *USER_1)
         draw(w);
 }
 
-static size_t draw_DBG(GLuint color_loc, struct gllc_DBG *DBG)
+static size_t draw_DBG(GLuint color_loc, struct gllc_DBG *DBG, GLfloat wx0, GLfloat wy0, GLfloat wx1, GLfloat wy1)
 {
         int i;
         for (i = 0; i < DBG->DE_size; i++)
         {
+                if (!(DBG->DE[i].BBox_x1 > wx0 && DBG->DE[i].BBox_y1 > wy0 && DBG->DE[i].BBox_x0 < wx1 && DBG->DE[i].BBox_y0 < wy1))
+                {
+                        continue;
+                }
                 glUniform4f(color_loc,
                             DBG->DE[i].color[0],
                             DBG->DE[i].color[1],
@@ -323,11 +327,17 @@ static void draw(struct gllc_window *w)
 
         glBindVertexArray(w->DBG.VAO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG.EBO);
-        draw_DBG(w->GL_u_color_loc, &w->DBG);
+
+        double wx0 = -(int)(w->width / 2) * w->scale_factor - w->dx;
+        double wy0 = -(int)(w->height / 2) * w->scale_factor - w->dy;
+        double wx1 = (int)(w->width / 2) * w->scale_factor - w->dx;
+        double wy1 = (int)(w->height / 2) * w->scale_factor - w->dy;
+
+        draw_DBG(w->GL_u_color_loc, &w->DBG, wx0, wy0, wx1, wy1);
 
         glBindVertexArray(w->DBG_interactive.VAO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_interactive.EBO);
-        draw_DBG(w->GL_u_color_loc, &w->DBG_interactive);
+        draw_DBG(w->GL_u_color_loc, &w->DBG_interactive, wx0, wy0, wx1, wy1);
 
         if (w->in_selection)
         {
@@ -338,7 +348,7 @@ static void draw(struct gllc_window *w)
 
         glBindVertexArray(w->DBG_screen.VAO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_screen.EBO);
-        draw_DBG(w->GL_u_color_loc, &w->DBG_screen);
+        draw_DBG(w->GL_u_color_loc, &w->DBG_screen, wx0, wy0, wx1, wy1);
 
         gllc_W_cursor_draw(&w->cursor, w->GL_u_color_loc, w->cursor_x, w->cursor_y, w->width, w->height);
 

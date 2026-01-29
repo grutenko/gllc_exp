@@ -25,6 +25,10 @@ struct gllc_DE
         GLuint V_cache_count;
         GLuint I_cache_count;
         GLfloat color[4];
+        GLfloat BBox_x0;
+        GLfloat BBox_y0;
+        GLfloat BBox_x1;
+        GLfloat BBox_y1;
         struct gllc_DE *next;
         struct gllc_DE *prev;
 };
@@ -48,6 +52,10 @@ struct gllc_DBG_DE
         GLfloat tex_u1;
         GLfloat tex_v1;
         GLuint atlas_index;
+        GLfloat BBox_x0;
+        GLfloat BBox_y0;
+        GLfloat BBox_x1;
+        GLfloat BBox_y1;
 };
 
 struct gllc_DBG

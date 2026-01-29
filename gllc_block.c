@@ -71,10 +71,9 @@ static void push_ent(struct gllc_block *block, struct gllc_block_entity *ent)
         block->ent_count++;
 }
 
-struct gllc_polyline *gllc_block_add_polyline(struct gllc_block *block,
-                                              int closed)
+struct gllc_polyline *gllc_block_add_polyline(struct gllc_block *block, int closed, int filled)
 {
-        struct gllc_polyline *pline = gllc_polyline_create(block, closed);
+        struct gllc_polyline *pline = gllc_polyline_create(block, closed, filled);
         if (pline)
         {
                 push_ent(block, (struct gllc_block_entity *)pline);
@@ -82,9 +81,9 @@ struct gllc_polyline *gllc_block_add_polyline(struct gllc_block *block,
         return pline;
 }
 
-struct gllc_rect *gllc_block_add_rect(struct gllc_block *block, double x0, double y0, double x1, double y1)
+struct gllc_rect *gllc_block_add_rect(struct gllc_block *block, double x0, double y0, double x1, double y1, int filled)
 {
-        struct gllc_rect *rect = gllc_rect_create(block, x0, y0, x1, y1);
+        struct gllc_rect *rect = gllc_rect_create(block, x0, y0, x1, y1, filled);
         if (rect)
         {
                 push_ent(block, (struct gllc_block_entity *)rect);
@@ -92,9 +91,9 @@ struct gllc_rect *gllc_block_add_rect(struct gllc_block *block, double x0, doubl
         return rect;
 }
 
-struct gllc_circle *gllc_block_add_circle(struct gllc_block *block, double x, double y, double radius)
+struct gllc_circle *gllc_block_add_circle(struct gllc_block *block, double x, double y, double radius, int filled)
 {
-        struct gllc_circle *circle = gllc_circle_create(block, x, y, radius);
+        struct gllc_circle *circle = gllc_circle_create(block, x, y, radius, filled);
         if (circle)
         {
                 push_ent(block, (struct gllc_block_entity *)circle);

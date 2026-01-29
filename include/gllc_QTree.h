@@ -1,7 +1,7 @@
 #ifndef gllc_QTree_h
 #define gllc_QTree_h
 
-#define GLLC_QTREE_MIN_SIZE 16
+#define GLLC_QTREE_MIN_SIZE 64
 
 struct gllc_block_entity;
 
@@ -10,7 +10,7 @@ struct gllc_QTree_node
         struct gllc_QTree_node *p;
         int x;
         int y;
-        size_t size;
+        int size;
         struct gllc_QTree_node *childs[4];
         struct gllc_block_entity *ents;
         size_t ents_cap;

@@ -87,6 +87,30 @@ int gllc_DE_update(struct gllc_DE *DE, struct gllc_DE_config *DE_config)
                 free(DE->V_cache);
                 DE->V_cache = V_new;
                 DE->V_cache_count = DE_config->V_count;
+
+                if (DE->V_cache_count > 0)
+                {
+                        GLuint i;
+                        GLfloat x, y;
+                        DE->BBox_x0 = DE->V_cache[0];
+                        DE->BBox_y0 = DE->V_cache[1];
+                        DE->BBox_x1 = DE->V_cache[0];
+                        DE->BBox_y1 = DE->V_cache[1];
+
+                        for (i = 1; i < DE->V_cache_count; i++)
+                        {
+                                x = DE->V_cache[i * 2];
+                                y = DE->V_cache[i * 2 + 1];
+                                if (x < DE->BBox_x0)
+                                        DE->BBox_x0 = x;
+                                if (y < DE->BBox_y0)
+                                        DE->BBox_y0 = y;
+                                if (x > DE->BBox_x1)
+                                        DE->BBox_x1 = x;
+                                if (y > DE->BBox_y1)
+                                        DE->BBox_y1 = y;
+                        }
+                }
         }
 
         if (I_new)
@@ -265,6 +289,10 @@ void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
                 DBG->DE[i].tex_u1 = 0;
                 DBG->DE[i].tex_v0 = 0;
                 DBG->DE[i].tex_v1 = 0;
+                DBG->DE[i].BBox_x0 = DE->BBox_x0;
+                DBG->DE[i].BBox_y0 = DE->BBox_y0;
+                DBG->DE[i].BBox_x1 = DE->BBox_x1;
+                DBG->DE[i].BBox_y1 = DE->BBox_y1;
                 VBO_offset += sizeof(GLfloat) * 2 * DE->V_cache_count;
                 EBO_offset += sizeof(GLuint) * DE->I_cache_count;
                 V_nth += DE->V_cache_count;
@@ -287,7 +315,7 @@ void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
 static void remove_DE(struct gllc_DBD *DBD, struct gllc_DE *DE)
 {
         assert(DBD);
-        assert(DE); 
+        assert(DE);
         assert(DE->DBD == DBD);
 
         if (DE->prev)

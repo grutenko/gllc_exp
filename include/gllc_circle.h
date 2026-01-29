@@ -12,10 +12,12 @@ struct gllc_circle
         double x;
         double y;
         double radius;
+        int filled;
 
         struct gllc_DE *DE_bound;
+        struct gllc_DE *DE_fill;
 };
 
-struct gllc_circle *gllc_circle_create(struct gllc_block *block, double x, double y, double radius);
+struct gllc_circle *gllc_circle_create(struct gllc_block *block, double x, double y, double radius, int filled);
 
 #endif

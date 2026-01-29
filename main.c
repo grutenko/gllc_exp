@@ -142,6 +142,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         int grid_size = 2;
         int width = 400;
         int height = 400;
+
         for (int y = 0; y < height; y += grid_size)
         {
                 for (int x = 0; x < width; x += grid_size)
@@ -150,12 +151,23 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         double y0 = (double)y - ((double)height / 2.0);
                         double x1 = x0 + (double)grid_size;
                         double y1 = y0 + (double)grid_size;
-                        struct gllc_rect *hRect = gllc_block_add_rect(hBlock, x0, y0, x1, y1);
-                        gllc_block_entity_set_color((struct gllc_block_entity *)hRect, 255 << 16 | 255 << 8 | 255);
+
+                        struct gllc_polyline *pl =
+                            gllc_block_add_polyline(hBlock, 1, 0); // 4 + замыкание
+
+                        gllc_polyline_add_ver(pl, x0, y0);
+                        gllc_polyline_add_ver(pl, x1, y0);
+                        gllc_polyline_add_ver(pl, x1, y1);
+                        gllc_polyline_add_ver(pl, x0, y1);
+                        gllc_polyline_add_ver(pl, x0, y0); // замыкание
+
+                        gllc_block_entity_set_color(
+                            (struct gllc_block_entity *)pl,
+                            255 << 16 | 255 << 8 | 255);
                 }
         }
 
-        double x_min = -1000.0, x_max = 1000.0;
+        /*double x_min = -1000.0, x_max = 1000.0;
         double y_min = -1000.0, y_max = 1000.0;
         double r_min = 0.5, r_max = 2.0;
         int i;
@@ -164,9 +176,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 double x = rand_double(x_min, x_max);
                 double y = rand_double(y_min, y_max);
                 double radius = rand_double(r_min, r_max);
-                struct gllc_circle *hCircle = gllc_block_add_circle(hBlock, x, y, radius);
-                gllc_block_entity_set_color((struct gllc_block_entity *)hCircle, rand_color());
-        }
+                struct gllc_circle *hCircle = gllc_block_add_circle(hBlock, x, y, radius, 1);
+                int color = rand_color();
+                gllc_block_entity_set_color((struct gllc_block_entity *)hCircle, color);
+                gllc_block_entity_set_fcolor((struct gllc_block_entity *)hCircle, color);
+        }*/
 
         gllc_window_set_block(w, hBlock);
         gllc_block_update(hBlock);

@@ -32,13 +32,18 @@ static size_t G_icap = 0;
 static int reserve(void **b, size_t *cap, size_t new_size)
 {
         if (*cap >= new_size)
+        {
                 return 1;
+        }
         void *new_b = malloc(new_size);
         if (!new_b)
+        {
                 return 0;
+        }
         free(*b);
         *cap = new_size;
         *b = new_b;
+
         return 1;
 }
 
@@ -52,7 +57,7 @@ static int reserve_I(size_t size)
         return reserve((void **)&G_indices, &G_icap, size);
 }
 
-void gllc_polyline_build(const double *V, size_t V_count, struct gllc_DE *DE_bound, float *color, int closed)
+void gllc_polyline_build(const struct gllc_polyline_vertex *V, size_t V_count, struct gllc_DE *DE_bound, struct gllc_DE *DE_fill, float *color, float *fcolor, int closed, int filled)
 {
         size_t V_size = sizeof(GLfloat) * 2 * V_count;
         size_t I_size = sizeof(GLuint) * V_count;
@@ -63,8 +68,8 @@ void gllc_polyline_build(const double *V, size_t V_count, struct gllc_DE *DE_bou
         int i;
         for (i = 0; i < V_count; i++)
         {
-                G_vertices[i * 2] = (GLfloat)V[i * 2];
-                G_vertices[i * 2 + 1] = (GLfloat)V[i * 2 + 1];
+                G_vertices[i * 2] = (GLfloat)V[i].x;
+                G_vertices[i * 2 + 1] = (GLfloat)V[i].y;
                 G_indices[i] = i;
         }
 
@@ -76,10 +81,67 @@ void gllc_polyline_build(const double *V, size_t V_count, struct gllc_DE *DE_bou
             .color = color};
 
         gllc_DE_update(DE_bound, &DE_config);
+
+        if (closed && filled)
+        {
+                // Triangulate and push DE triangles
+        }
 }
 
 static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 {
+        struct gllc_polyline *pline = (struct gllc_polyline *)ent;
+
+        if (pline->closed && pline->filled)
+        {
+                pline->DE_fill = gllc_DE_create(DBD, GL_TRIANGLES);
+
+                if (!pline->DE_fill)
+                {
+                        return;
+                }
+        }
+        else
+        {
+                if (pline->DE_fill)
+                {
+                        gllc_DE_destroy(pline->DE_fill);
+                }
+
+                pline->DE_fill = NULL;
+        }
+
+        if (!pline->DE_bound)
+        {
+                if (pline->closed)
+                {
+                        pline->DE_bound = gllc_DE_create(DBD, GL_LINE_LOOP);
+
+                        if (!pline->DE_bound)
+                        {
+                                return;
+                        }
+                }
+                else
+                {
+                        pline->DE_bound = gllc_DE_create(DBD, GL_LINE_STRIP);
+
+                        if (!pline->DE_bound)
+                        {
+                                return;
+                        }
+                }
+        }
+
+        if (pline->closed)
+        {
+                pline->DE_bound->GL_type = GL_LINE_LOOP;
+        }
+        else
+        {
+                pline->DE_bound->GL_type = GL_LINE_STRIP;
+        }
+
         int color = gllc_block_entity_color(ent);
         int fcolor = gllc_block_entity_fcolor(ent);
 
@@ -89,17 +151,18 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
             (GLfloat)(color & 0xff) / 255,
             1.0f};
 
-        gllc_polyline_build(
-            ((struct gllc_polyline *)ent)->ver,
-            ((struct gllc_polyline *)ent)->ver_size,
-            ((struct gllc_polyline *)ent)->DE_bound,
-            color_,
-            ((struct gllc_polyline *)ent)->closed);
+        GLfloat fcolor_[] = {
+            (GLfloat)((fcolor >> 16) & 0xff) / 255,
+            (GLfloat)((fcolor >> 8) & 0xff) / 255,
+            (GLfloat)(fcolor & 0xff) / 255,
+            1.0f};
+
+        gllc_polyline_build(pline->ver, pline->ver_size, pline->DE_bound, pline->DE_fill, color_, fcolor_, pline->closed, pline->filled);
 
         ent->modified = 0;
 }
 
-struct gllc_polyline *gllc_polyline_create(struct gllc_block *block, int closed)
+struct gllc_polyline *gllc_polyline_create(struct gllc_block *block, int closed, int filled)
 {
         struct gllc_polyline *ent = malloc(sizeof(struct gllc_polyline));
         if (ent)
@@ -110,22 +173,8 @@ struct gllc_polyline *gllc_polyline_create(struct gllc_block *block, int closed)
                 ent->__ent.destroy = destruct;
                 ent->__ent.build = build;
                 ent->__ent.block = block;
-
-                if (closed)
-                {
-                        ent->DE_bound = gllc_DE_create(&block->DBD, GL_LINE_LOOP);
-
-                        if (!ent->DE_bound)
-                                goto _error;
-                }
-                else
-                {
-                        ent->DE_bound = gllc_DE_create(&block->DBD, GL_LINE_STRIP);
-                        if (!ent->DE_bound)
-                                goto _error;
-                }
-
                 ent->closed = closed;
+                ent->filled = filled;
                 ent->__ent.props.color = -1;
                 ent->__ent.props.fcolor = -1;
                 ent->__ent.modified = 1;
@@ -146,14 +195,17 @@ static int push_ver(struct gllc_polyline *pline, double x, double y)
         if (pline->ver_size + 2 > pline->ver_cap)
         {
                 size_t new_cap = pline->ver_cap ? pline->ver_cap * 2 : 8;
-                double *new_ver = (double *)realloc(pline->ver, sizeof(double) * new_cap * 2);
+                struct gllc_polyline_vertex *new_ver = (struct gllc_polyline_vertex *)realloc(pline->ver, sizeof(struct gllc_polyline_vertex) * new_cap);
                 if (!new_ver)
+                {
                         return 0;
+                }
                 pline->ver = new_ver;
                 pline->ver_cap = new_cap;
         }
-        pline->ver[pline->ver_size * 2] = x;
-        pline->ver[pline->ver_size * 2 + 1] = y;
+
+        pline->ver[pline->ver_size].x = x;
+        pline->ver[pline->ver_size].y = y;
         pline->ver_size++;
 
         return 1;
@@ -162,5 +214,6 @@ static int push_ver(struct gllc_polyline *pline, double x, double y)
 void gllc_polyline_add_ver(struct gllc_polyline *pline, double x, double y)
 {
         push_ver(pline, x, y);
+
         pline->__ent.modified = 1;
 }
