@@ -1,0 +1,1 @@
+add_library(tess2 STATIC bucketalloc.c dict.c geom.c mesh.c priorityq.c sweep.c tess.c)

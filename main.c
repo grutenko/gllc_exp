@@ -4,8 +4,10 @@
 #include "gllc_polyline.h"
 #include "gllc_window.h"
 #include "include/gllc_circle.h"
+#include "include/gllc_point.h"
 #include "include/gllc_rect.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <windows.h>
@@ -89,6 +91,36 @@ unsigned int rand_color()
         return (r << 16) | (g << 8) | b;
 }
 
+int read_line(FILE *f, char *buf, size_t bufsz)
+{
+        int c;
+        int i;
+        for (i = 0; i < bufsz; i++)
+        {
+                c = getc(f);
+                if (c == -1)
+                {
+                        printf("read_line() read error\n");
+                        return -1;
+                }
+                if (c == '\r')
+                {
+                        getc(f);
+                        buf[i] = '\0';
+                        return i;
+                }
+                else if (c == '\n')
+                {
+                        buf[i] = '\0';
+                        return i;
+                }
+
+                buf[i] = (char)c;
+        }
+        buf[i] = '\0';
+        return i;
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
         srand((unsigned int)time(NULL));
@@ -120,7 +152,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #define TIMER_INTERVAL 64
 
         // после создания окна:
-        // SetTimer(hwnd, TIMER_ID, TIMER_INTERVAL, NULL);
+        //SetTimer(hwnd, TIMER_ID, TIMER_INTERVAL, NULL);
 
         w = gllc_window_create(hwnd);
         if (!w)
@@ -153,7 +185,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         double y1 = y0 + (double)grid_size;
 
                         struct gllc_polyline *pl =
-                            gllc_block_add_polyline(hBlock, 1, 0); // 4 + замыкание
+                            gllc_block_add_polyline(hBlock, 1, 1); // 4 + замыкание
 
                         gllc_polyline_add_ver(pl, x0, y0);
                         gllc_polyline_add_ver(pl, x1, y0);
@@ -164,26 +196,63 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         gllc_block_entity_set_color(
                             (struct gllc_block_entity *)pl,
                             255 << 16 | 255 << 8 | 255);
+                        gllc_block_entity_set_fcolor((struct gllc_block_entity *)pl, rand_color());
                 }
         }
 
-        /*double x_min = -1000.0, x_max = 1000.0;
-        double y_min = -1000.0, y_max = 1000.0;
-        double r_min = 0.5, r_max = 2.0;
-        int i;
-        for (i = 0; i < 90000; i++)
+
+        FILE *plines = fopen("polylines.txt", "r");
+        if (!plines)
         {
-                double x = rand_double(x_min, x_max);
-                double y = rand_double(y_min, y_max);
-                double radius = rand_double(r_min, r_max);
-                struct gllc_circle *hCircle = gllc_block_add_circle(hBlock, x, y, radius, 1);
-                int color = rand_color();
-                gllc_block_entity_set_color((struct gllc_block_entity *)hCircle, color);
-                gllc_block_entity_set_fcolor((struct gllc_block_entity *)hCircle, color);
-        }*/
+                return 1;
+        }
+
+        while (!feof(plines))
+        {
+                int n_points = 0;
+                char line[64];
+
+                if (read_line(plines, line, 63) == -1)
+                {
+                        goto __end;
+                }
+
+                if (sscanf(line, "%d", &n_points) != 1)
+                {
+                        goto __end;
+                }
+
+                struct gllc_polyline *pline = gllc_block_add_polyline(hBlock, 1, 1);
+                gllc_block_entity_set_color((struct gllc_block_entity *)pline, 255 << 16 | 255 << 8 | 255);
+                gllc_block_entity_set_fcolor((struct gllc_block_entity *)pline, rand_color());
+
+                int i;
+                for (i = 0; i < n_points; i++)
+                {
+                        if (read_line(plines, line, 63) == -1)
+                        {
+                                goto __end;
+                        }
+
+                        double x, y;
+
+                        if (sscanf(line, "%lf %lf", &x, &y) != 2)
+                        {
+                                goto __end;
+                        }
+
+                        gllc_polyline_add_ver(pline, x, y);
+                }
+        }
+
+__end:
+
+        fclose(plines);
 
         gllc_window_set_block(w, hBlock);
         gllc_block_update(hBlock);
+
+        gllc_window_zoom_bb(w);
 
         ShowWindow(hwnd, nCmdShow);
 

@@ -3,17 +3,29 @@
 // Позиция вершины
 layout(location = 0) in vec2 aPos;
 
-// Матрицы трансформации
-uniform mat4 uMVP;      // Общая матрица
+uniform mat4 uMVP;
 
-// Цвет вершины
+const uint FLAG_POINT_SCALE_INVARIANT = 1u << 0;
+
 uniform vec4 uColor;
+uniform vec2 uViewport;
+uniform float uScale;
+uniform uint uFlags;
+uniform vec2 uCenterPoint;
 
-// Передача цвета в фрагментный шейдер
 out vec4 vColor;
 
 void main()
 {
-        gl_Position = uMVP * vec4(aPos, 0.0, 1.0);
+        vec2 pos = aPos;
+
+        if ((uFlags & FLAG_POINT_SCALE_INVARIANT) != 0u)
+        {
+                pos = uCenterPoint + ((pos - uCenterPoint) * uScale);
+        }
+
+        gl_Position = uMVP * vec4(pos, 0.0, 1.0);
+
+        gl_PointSize = 5.0;
         vColor = uColor;
 }

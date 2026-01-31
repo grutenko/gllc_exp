@@ -5,6 +5,7 @@
 #include "gllc_object.h"
 #include "gllc_polyline.h"
 #include "gllc_rect.h"
+#include "include/gllc_point.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -81,9 +82,9 @@ struct gllc_polyline *gllc_block_add_polyline(struct gllc_block *block, int clos
         return pline;
 }
 
-struct gllc_rect *gllc_block_add_rect(struct gllc_block *block, double x0, double y0, double x1, double y1, int filled)
+struct gllc_rect *gllc_block_add_rect(struct gllc_block *block, double x, double y, double width, double height, double angle, int filled)
 {
-        struct gllc_rect *rect = gllc_rect_create(block, x0, y0, x1, y1, filled);
+        struct gllc_rect *rect = gllc_rect_create(block, x, y, width, height, angle, filled);
         if (rect)
         {
                 push_ent(block, (struct gllc_block_entity *)rect);
@@ -99,6 +100,16 @@ struct gllc_circle *gllc_block_add_circle(struct gllc_block *block, double x, do
                 push_ent(block, (struct gllc_block_entity *)circle);
         }
         return circle;
+}
+
+struct gllc_point *gllc_block_add_point(struct gllc_block *block, double x, double y)
+{
+        struct gllc_point *point = gllc_point_create(block, x, y);
+        if (point)
+        {
+                push_ent(block, (struct gllc_block_entity *)point);
+        }
+        return point;
 }
 
 void gllc_block_update(struct gllc_block *block)

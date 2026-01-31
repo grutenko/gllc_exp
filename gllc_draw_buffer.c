@@ -120,6 +120,16 @@ int gllc_DE_update(struct gllc_DE *DE, struct gllc_DE_config *DE_config)
                 DE->I_cache_count = DE_config->I_count;
         }
 
+        if (DE_config->flags)
+        {
+                DE->flags = *DE_config->flags;
+        }
+
+        if (DE_config->center_point)
+        {
+                memcpy(DE->center_point, DE_config->center_point, sizeof(GLfloat) * 2);
+        }
+
         if (DE->DBD)
                 DE->DBD->modified = 1;
 
@@ -215,6 +225,8 @@ void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
                 struct gllc_DBG_DE *DE_new = realloc(DBG->DE, sizeof(struct gllc_DBG_DE) * DE_size);
                 if (!DE_new)
                         return;
+
+                memset(DE_new, 0, sizeof(struct gllc_DBG_DE) * DE_size);
                 DBG->DE = DE_new;
                 DBG->DE_cap = DE_size;
         }
@@ -293,6 +305,9 @@ void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
                 DBG->DE[i].BBox_y0 = DE->BBox_y0;
                 DBG->DE[i].BBox_x1 = DE->BBox_x1;
                 DBG->DE[i].BBox_y1 = DE->BBox_y1;
+                DBG->DE[i].flags = DE->flags;
+                DBG->DE[i].center_point[0] = DE->center_point[0];
+                DBG->DE[i].center_point[1] = DE->center_point[1];
                 VBO_offset += sizeof(GLfloat) * 2 * DE->V_cache_count;
                 EBO_offset += sizeof(GLuint) * DE->I_cache_count;
                 V_nth += DE->V_cache_count;

@@ -120,12 +120,10 @@ static void update_viewport(struct gllc_window *w)
 {
         render_camera(w);
 
-        struct gllc_W_grid_viewport v = {
-            .x0 = -(int)(w->width / 2) * w->scale_factor - w->dx,
-            .y0 = -(int)(w->height / 2) * w->scale_factor - w->dy,
-            .x1 = (int)(w->width / 2) * w->scale_factor - w->dx,
-            .y1 = (int)(w->height / 2) * w->scale_factor - w->dy,
-            .scale = w->scale_factor};
+        struct gllc_W_grid_viewport v;
+        gllc_window_wnd_to_drw(w, 0.0f, 0.0f, &v.x0, &v.y0);
+        gllc_window_wnd_to_drw(w, (double)w->width, (double)w->height, &v.x1, &v.y1);
+        v.scale = w->scale_factor;
 
         struct gllc_W_grid_config conf = {
             .clear_color = NULL,
@@ -139,16 +137,19 @@ static void update_viewport(struct gllc_window *w)
 
 static void load_GL_uniform_loc(struct gllc_window *w)
 {
-        w->GL_u_MVP_loc = glGetUniformLocation(w->GL_program, "uMVP");
-        if (w->GL_u_MVP_loc == -1)
-        {
-                fprintf(stderr, "Uniform uMVP not found!\n");
+#define LOADLOC(out, var)                                        \
+        out = glGetUniformLocation(w->GL_program, var);          \
+        if (out == -1)                                           \
+        {                                                        \
+                fprintf(stderr, "Uniform %s not found!\n", var); \
         }
-        GLint uColor_loc = glGetUniformLocation(w->GL_program, "uColor");
-        if (uColor_loc == -1)
-        {
-                fprintf(stderr, "Uniform uColor not found!\n");
-        }
+
+        LOADLOC(w->GL_u_MVP_loc, "uMVP");
+        LOADLOC(w->GL_u_color_loc, "uColor");
+        LOADLOC(w->GL_u_viewport_loc, "uViewport");
+        LOADLOC(w->GL_u_scale_loc, "uScale");
+        LOADLOC(w->GL_u_flags_loc, "uFlags");
+        LOADLOC(w->GL_u_center_point_loc, "uCenterPoint");
 }
 
 struct drag_state
@@ -252,7 +253,7 @@ static void on_mouse_scroll(struct gllc_WN *wn, int dx, int dy, void *USER_1)
         draw(w);
 }
 
-static size_t draw_DBG(GLuint color_loc, struct gllc_DBG *DBG, GLfloat wx0, GLfloat wy0, GLfloat wx1, GLfloat wy1)
+static size_t draw_DBG(GLuint color_loc, GLuint flags_loc, GLuint center_point_loc, struct gllc_DBG *DBG, GLfloat wx0, GLfloat wy0, GLfloat wx1, GLfloat wy1)
 {
         int i;
         for (i = 0; i < DBG->DE_size; i++)
@@ -261,13 +262,20 @@ static size_t draw_DBG(GLuint color_loc, struct gllc_DBG *DBG, GLfloat wx0, GLfl
                 {
                         continue;
                 }
+
+                glUniform1ui(flags_loc, DBG->DE[i].flags);
+                glUniform2f(center_point_loc, DBG->DE[i].center_point[0], DBG->DE[i].center_point[1]);
                 glUniform4f(color_loc,
                             DBG->DE[i].color[0],
                             DBG->DE[i].color[1],
                             DBG->DE[i].color[2],
                             DBG->DE[i].color[3]);
+
                 glDrawElements(DBG->DE[i].GL_type, DBG->DE[i].size, GL_UNSIGNED_INT, (void *)(sizeof(GLuint) * DBG->DE[i].offset));
         }
+
+        glUniform1ui(flags_loc, 0);
+
         return DBG->DE_size;
 }
 
@@ -317,8 +325,12 @@ static void draw(struct gllc_window *w)
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(w->GL_program);
-
+        glUniform1ui(w->GL_u_flags_loc, 0);
         glUniformMatrix4fv(w->GL_u_MVP_loc, 1, GL_FALSE, (const float *)w->GL_m_MVP);
+
+        GLfloat viewport[2] = {(GLfloat)w->width, (GLfloat)w->height};
+        glUniform2fv(w->GL_u_viewport_loc, 1, (const float *)viewport);
+        glUniform1f(w->GL_u_scale_loc, w->scale_factor);
 
         if (w->grid_used)
         {
@@ -333,11 +345,11 @@ static void draw(struct gllc_window *w)
         double wx1 = (int)(w->width / 2) * w->scale_factor - w->dx;
         double wy1 = (int)(w->height / 2) * w->scale_factor - w->dy;
 
-        draw_DBG(w->GL_u_color_loc, &w->DBG, wx0, wy0, wx1, wy1);
+        draw_DBG(w->GL_u_color_loc, w->GL_u_flags_loc, w->GL_u_center_point_loc, &w->DBG, wx0, wy0, wx1, wy1);
 
         glBindVertexArray(w->DBG_interactive.VAO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_interactive.EBO);
-        draw_DBG(w->GL_u_color_loc, &w->DBG_interactive, wx0, wy0, wx1, wy1);
+        draw_DBG(w->GL_u_color_loc, w->GL_u_flags_loc, w->GL_u_center_point_loc, &w->DBG_interactive, wx0, wy0, wx1, wy1);
 
         if (w->in_selection)
         {
@@ -348,7 +360,7 @@ static void draw(struct gllc_window *w)
 
         glBindVertexArray(w->DBG_screen.VAO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_screen.EBO);
-        draw_DBG(w->GL_u_color_loc, &w->DBG_screen, wx0, wy0, wx1, wy1);
+        draw_DBG(w->GL_u_color_loc, w->GL_u_flags_loc, w->GL_u_center_point_loc, &w->DBG_screen, wx0, wy0, wx1, wy1);
 
         gllc_W_cursor_draw(&w->cursor, w->GL_u_color_loc, w->cursor_x, w->cursor_y, w->width, w->height);
 
@@ -531,4 +543,63 @@ void gllc_window_grid_configure(struct gllc_window *window, double gap_x, double
         window->grid.gap_y = gap_y;
 
         memcpy(window->grid.color, color, sizeof(float) * 4);
+}
+
+void gllc_window_wnd_to_drw(struct gllc_window *w, double x, double y, double *xd, double *yd)
+{
+        *xd = (x - ((double)w->width / 2)) * w->scale_factor - w->dx;
+        *yd = (y - ((double)w->height / 2)) * w->scale_factor - w->dy;
+}
+
+void gllc_window_zoom_bb(struct gllc_window *window)
+{
+        if (!window->block)
+        {
+                return;
+        }
+
+        double x_min, y_min, x_max, y_max;
+
+        if (window->block->DBD.DE_count == 0)
+        {
+                return;
+        }
+
+        struct gllc_DE *DE = window->block->DBD.DE_head;
+
+        x_min = DE->BBox_x0;
+        y_min = DE->BBox_y0;
+        x_max = DE->BBox_x1;
+        y_max = DE->BBox_y1;
+        DE = DE->next;
+
+        while (DE)
+        {
+                if (DE->BBox_x0 < x_min)
+                        x_min = DE->BBox_x0;
+                if (DE->BBox_y0 < y_min)
+                        y_min = DE->BBox_y0;
+                if (DE->BBox_x1 > x_max)
+                        x_max = DE->BBox_x1;
+                if (DE->BBox_y1 > y_max)
+                        y_max = DE->BBox_y1;
+
+                DE = DE->next;
+        }
+
+        if (fabs(x_max - x_min) > fabs(y_max - y_min))
+        {
+                window->scale_factor = fabs(x_max - x_min) / (double)window->width;
+        }
+        else
+        {
+                window->scale_factor = fabs(y_max - y_min) / (double)window->height;
+        }
+
+        window->dx = -(x_min + ((x_max - x_min) / 2.0f));
+        window->dy = -(y_min + ((y_max - y_min) / 2.0f));
+
+        update_viewport(window);
+
+        gllc_WN_dirty(window->native);
 }

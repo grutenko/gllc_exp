@@ -26,8 +26,17 @@ void gllc_W_selection_draw(struct gllc_W_selection *sel, GLuint u_color_loc, dou
                 glGenBuffers(1, &sel->EBO);
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sel->EBO);
                 GLuint I[] = {
-                    0, 1, 2, 3,
-                    0, 1, 2, 2, 3, 0,};
+                    0,
+                    1,
+                    2,
+                    3,
+                    0,
+                    1,
+                    2,
+                    2,
+                    3,
+                    0,
+                };
                 glBufferData(GL_ELEMENT_ARRAY_BUFFER, SEL_EBO_SIZE, I, GL_STATIC_DRAW);
         }
         else
@@ -38,10 +47,13 @@ void gllc_W_selection_draw(struct gllc_W_selection *sel, GLuint u_color_loc, dou
         int vcount = 0;
 
         GLfloat V[] = {
-            (GLfloat)x0, (GLfloat)y0,
-            (GLfloat)x1, (GLfloat)y0,
-            (GLfloat)x1, (GLfloat)y1,
-            (GLfloat)x0, (GLfloat)y1};
+            (GLfloat)x0 - 0.5f, (GLfloat)y0 - 0.5f,
+            (GLfloat)x1 + 0.5f, (GLfloat)y0 - 0.5f,
+            (GLfloat)x1 + 0.5f, (GLfloat)y1 + 0.5f,
+            (GLfloat)x0 - 0.5f, (GLfloat)y1 + 0.5f};
+
+        glEnable(GL_LINE_SMOOTH);
+        glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
         glBufferSubData(GL_ARRAY_BUFFER, 0, SEL_VBO_SIZE, V);
 
@@ -52,4 +64,6 @@ void gllc_W_selection_draw(struct gllc_W_selection *sel, GLuint u_color_loc, dou
         glDrawElements(GL_TRIANGLES, SEL_RECT_ICOUNT, GL_UNSIGNED_INT, (void *)(sizeof(GLuint) * SEL_LINES_ICOUNT));
 
         glBindVertexArray(0);
+
+        glDisable(GL_LINE_SMOOTH);
 }

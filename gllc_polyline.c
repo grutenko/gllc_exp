@@ -4,6 +4,8 @@
 #include "gllc_draw_buffer.h"
 #include "gllc_object.h"
 
+#include "tess2/tess2.h"
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -84,7 +86,30 @@ void gllc_polyline_build(const struct gllc_polyline_vertex *V, size_t V_count, s
 
         if (closed && filled)
         {
-                // Triangulate and push DE triangles
+                TESStesselator *tess = tessNewTess(NULL);
+                if (tess)
+                {
+                        tessAddContour(tess, 2, G_vertices, sizeof(GLfloat) * 2, V_count);
+
+                        if (tessTesselate(tess, TESS_WINDING_POSITIVE, TESS_POLYGONS, 3, 2, NULL))
+                        {
+                                const float *verts = tessGetVertices(tess);
+                                int vert_count = tessGetVertexCount(tess);
+                                int indices_count = tessGetElementCount(tess);
+                                const int *indices = tessGetElements(tess);
+
+                                struct gllc_DE_config DE_config = {
+                                    .V = verts,
+                                    .I = (GLuint *)indices,
+                                    .V_count = vert_count,
+                                    .I_count = indices_count * 3,
+                                    .color = fcolor};
+
+                                gllc_DE_update(DE_fill, &DE_config);
+                        }
+
+                        tessDeleteTess(tess);
+                }
         }
 }
 
@@ -92,7 +117,7 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 {
         struct gllc_polyline *pline = (struct gllc_polyline *)ent;
 
-        if (pline->closed && pline->filled)
+        if (GLLC_ENT_FLAG(ent, GLLC_ENT_CLOSED) && GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED))
         {
                 pline->DE_fill = gllc_DE_create(DBD, GL_TRIANGLES);
 
@@ -113,7 +138,7 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 
         if (!pline->DE_bound)
         {
-                if (pline->closed)
+                if (GLLC_ENT_FLAG(ent, GLLC_ENT_CLOSED))
                 {
                         pline->DE_bound = gllc_DE_create(DBD, GL_LINE_LOOP);
 
@@ -133,7 +158,7 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
                 }
         }
 
-        if (pline->closed)
+        if (GLLC_ENT_FLAG(ent, GLLC_ENT_CLOSED))
         {
                 pline->DE_bound->GL_type = GL_LINE_LOOP;
         }
@@ -157,7 +182,15 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
             (GLfloat)(fcolor & 0xff) / 255,
             1.0f};
 
-        gllc_polyline_build(pline->ver, pline->ver_size, pline->DE_bound, pline->DE_fill, color_, fcolor_, pline->closed, pline->filled);
+        gllc_polyline_build(
+            pline->ver,
+            pline->ver_size,
+            pline->DE_bound,
+            pline->DE_fill,
+            color_,
+            fcolor_,
+            GLLC_ENT_FLAG(ent, GLLC_ENT_CLOSED),
+            GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED));
 
         ent->modified = 0;
 }
@@ -173,8 +206,14 @@ struct gllc_polyline *gllc_polyline_create(struct gllc_block *block, int closed,
                 ent->__ent.destroy = destruct;
                 ent->__ent.build = build;
                 ent->__ent.block = block;
-                ent->closed = closed;
-                ent->filled = filled;
+                if (closed)
+                {
+                        GLLC_ENT_SET_FLAG(ent, GLLC_ENT_CLOSED);
+                }
+                if (filled)
+                {
+                        GLLC_ENT_SET_FLAG(ent, GLLC_ENT_FILLED);
+                }
                 ent->__ent.props.color = -1;
                 ent->__ent.props.fcolor = -1;
                 ent->__ent.modified = 1;
@@ -204,6 +243,9 @@ static int push_ver(struct gllc_polyline *pline, double x, double y)
                 pline->ver_cap = new_cap;
         }
 
+        memset(&pline->ver[pline->ver_size], 0, sizeof(struct gllc_polyline_vertex));
+        // TODO: обявление свойств для VERTEX
+        pline->ver[pline->ver_size].__obj.prop_def = 0;
         pline->ver[pline->ver_size].x = x;
         pline->ver[pline->ver_size].y = y;
         pline->ver_size++;

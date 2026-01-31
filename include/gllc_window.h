@@ -26,6 +26,10 @@ struct gllc_window
         GLuint GL_program;
         GLuint GL_u_MVP_loc;
         GLuint GL_u_color_loc;
+        GLuint GL_u_viewport_loc;
+        GLuint GL_u_scale_loc;
+        GLuint GL_u_flags_loc;
+        GLuint GL_u_center_point_loc;
         struct gllc_DBG DBG;
         struct gllc_DBG DBG_interactive;
         mat4 GL_m_proj;
@@ -66,5 +70,9 @@ void gllc_window_redraw(struct gllc_window *window);
 void gllc_window_enable_grid(struct gllc_window *window, int enable);
 
 void gllc_window_grid_configure(struct gllc_window *window, double gap_x, double gap_y, double offset_x, double offset_y, float *color);
+
+void gllc_window_zoom_bb(struct gllc_window *window);
+
+void gllc_window_wnd_to_drw(struct gllc_window *window, double x, double y, double *xd, double *yd);
 
 #endif

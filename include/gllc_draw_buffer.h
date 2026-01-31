@@ -3,13 +3,17 @@
 
 #include "glad.h"
 
+#define GLLC_POINT_SCALE_INVARIANT 0x1
+
 struct gllc_DE_config
 {
         const GLfloat *color;
         const GLfloat *V;
         const GLuint *I;
+        const GLfloat *center_point;
         GLuint V_count;
         GLuint I_count;
+        GLuint *flags;
 };
 
 struct gllc_DBD;
@@ -20,10 +24,12 @@ struct gllc_DE
         GLenum GL_type;
         int layer;
         int skip;
+        GLuint flags;
         GLfloat *V_cache;
         GLuint *I_cache;
         GLuint V_cache_count;
         GLuint I_cache_count;
+        GLfloat center_point[2];
         GLfloat color[4];
         GLfloat BBox_x0;
         GLfloat BBox_y0;
@@ -46,7 +52,9 @@ struct gllc_DBG_DE
         GLenum GL_type;
         GLuint offset;
         GLuint size;
+        GLuint flags;
         GLfloat color[4];
+        GLfloat center_point[4];
         GLfloat tex_u0;
         GLfloat tex_v0;
         GLfloat tex_u1;

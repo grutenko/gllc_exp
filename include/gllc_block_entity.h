@@ -4,6 +4,9 @@
 #include "gllc_draw_buffer.h"
 #include "gllc_object.h"
 
+#define GLLC_ENT_CLOSED 0x1
+#define GLLC_ENT_FILLED 0x2
+
 struct gllc_draw_ent;
 struct gllc_draw_batch;
 struct gllc_block;
@@ -33,9 +36,13 @@ struct gllc_block_entity
         double BBox_x1;
         double BBox_y0;
         double Bbox_y1;
-        int flags;
+        unsigned int flags;
         int modified;
 };
+
+#define GLLC_ENT_SET_FLAG(ent, fl) (((struct gllc_block_entity *)ent)->flags |= (fl))
+#define GLLC_ENT_UNSET_FLAG(ent, fl) (((struct gllc_block_entity *)ent)->flags &= ~(fl))
+#define GLLC_ENT_FLAG(ent, fl) (((struct gllc_block_entity *)ent)->flags & (fl))
 
 void gllc_block_entity_destroy(struct gllc_block_entity *ent);
 

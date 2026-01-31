@@ -10,6 +10,8 @@ set(LIBREDWG_STATIC ON CACHE BOOL "" FORCE)
 add_subdirectory(3rdparty)
 add_subdirectory(tools)
 
+add_subdirectory(libtess2)
+
 set(SHADERS
     shaders/gllc_vertex_shader.vert
     shaders/gllc_fragment_shader.frag
@@ -69,6 +71,8 @@ set(SOURCES glad.c
   gllc_window_grid.c
   gllc_window_cursor.c
   gllc_window_selection.c
+  gllc_text.c
+  gllc_point.c
   ${GENERATED_HEADERS}
   ${GENERATED_FONT_HEADERS}
   stb_truetype.c
@@ -76,7 +80,7 @@ set(SOURCES glad.c
 
 add_executable(gllc_exp ${SOURCES})
 
-target_link_libraries(gllc_exp PRIVATE cglm freetype redwg)
+target_link_libraries(gllc_exp PRIVATE cglm freetype redwg tess2)
 
 target_include_directories(gllc_exp PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 

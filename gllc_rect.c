@@ -1,6 +1,8 @@
 #include "gllc_rect.h"
 #include "gllc_draw_buffer.h"
 #include "include/gllc_block.h"
+
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -17,18 +19,23 @@ static inline void _swap(double *a, double *b)
         *b = t;
 }
 
-void gllc_rect_build(double x0, double y0, double x1, double y1, GLfloat *color, GLfloat *fcolor, struct gllc_DE *DE_bound, struct gllc_DE *DE_fill, int filled)
+#define PI 3.14159265358979323846
+
+void gllc_rect_build(double x, double y, double width, double height, double angle, GLfloat *color, GLfloat *fcolor, struct gllc_DE *DE_bound, struct gllc_DE *DE_fill, int filled)
 {
-        if (x0 > x1)
-                _swap(&x0, &x1);
-        if (y0 > y1)
-                _swap(&y0, &y1);
+        double rad = angle * (PI / 180.0);
+        GLfloat x0, y0, x1, y1;
+
+        x0 = (GLfloat)x;
+        y0 = (GLfloat)y;
+        x1 = (GLfloat)(x + width);
+        y1 = (GLfloat)(y + height);
 
         GLfloat V[] = {
-            (GLfloat)x0, (GLfloat)y0,
-            (GLfloat)x1, (GLfloat)y0,
-            (GLfloat)x1, (GLfloat)y1,
-            (GLfloat)x0, (GLfloat)y1};
+            x0, y0,
+            x1, y0,
+            x1, y1,
+            x0, y1};
 
         GLuint I[] = {0, 1, 2, 3};
 
@@ -107,10 +114,11 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
             1.0f};
 
         gllc_rect_build(
-            rect->x0,
-            rect->y0,
-            rect->x1,
-            rect->y1,
+            rect->x,
+            rect->y,
+            rect->width,
+            rect->height,
+            rect->angle,
             color_,
             fcolor_,
             rect->DE_bound,
@@ -127,7 +135,7 @@ static void destruct(struct gllc_block_entity *ent)
                 gllc_DE_destroy(rect->DE_bound);
 }
 
-struct gllc_rect *gllc_rect_create(struct gllc_block *block, double x0, double y0, double x1, double y1, int filled)
+struct gllc_rect *gllc_rect_create(struct gllc_block *block, double x, double y, double width, double height, double angle, int filled)
 {
         struct gllc_rect *ent = malloc(sizeof(struct gllc_rect));
         if (ent)
@@ -140,10 +148,11 @@ struct gllc_rect *gllc_rect_create(struct gllc_block *block, double x0, double y
                 ent->__ent.block = block;
                 ent->__ent.modified = 1;
 
-                ent->x0 = x0;
-                ent->y0 = y0;
-                ent->x1 = x1;
-                ent->y1 = y1;
+                ent->x = x;
+                ent->y = y;
+                ent->width = width;
+                ent->height = height;
+                ent->angle = angle;
                 ent->filled = filled;
         }
         return ent;

@@ -33,8 +33,6 @@ struct gllc_polyline
         size_t ver_size;
         struct gllc_DE *DE_bound;
         struct gllc_DE *DE_fill;
-        int closed;
-        int filled;
         int fit_type;
 };
 
