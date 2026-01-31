@@ -1,4 +1,5 @@
 #include "gllc_block.h"
+#include "gllc_QTree.h"
 #include "gllc_block_entity.h"
 #include "gllc_circle.h"
 #include "gllc_draw_buffer.h"
@@ -117,9 +118,9 @@ void gllc_block_update(struct gllc_block *block)
         struct gllc_block_entity *ent = block->ent_head;
         while (ent)
         {
-                if (ent->modified)
+                if (GLLC_ENT_FLAG(ent, GLLC_ENT_MODIFIED))
                 {
-                        ent->build(ent, &block->DBD);
+                        ent->vtable->build(ent, &block->DBD);
                 }
                 ent = ent->next;
         }
@@ -131,10 +132,11 @@ void gllc_block_destroy(struct gllc_block *block)
         while (ent)
         {
                 struct gllc_block_entity *next = ent->next;
-                gllc_block_entity_destroy(ent);
+                gllc_ent_destroy(ent);
                 ent = next;
         }
         gllc_DBD_destroy(&block->DBD);
         gllc_object_cleanup(&block->__obj);
+        gllc_QTree_destroy(&block->Q_tree);
         free(block);
 }

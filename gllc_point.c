@@ -19,20 +19,12 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
         if (!point->DE)
         {
                 point->DE = gllc_DE_create(DBD, GL_LINES);
-
                 if (!point->DE)
-                {
                         return;
-                }
         }
 
-        int color = gllc_block_entity_color(ent);
-
-        GLfloat color_[] = {
-            (GLfloat)((color >> 16) & 0xff) / 255,
-            (GLfloat)((color >> 8) & 0xff) / 255,
-            (GLfloat)(color & 0xff) / 255,
-            1.0f};
+        GLfloat color_[4];
+        gllc_ent_color_4f(gllc_ent_color(ent), color_);
 
         GLfloat V[] = {
             (GLfloat)point->x - 5.0f, (GLfloat)point->y,
@@ -57,7 +49,7 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 
         gllc_DE_update(point->DE, &DE_conf);
 
-        ent->modified = 0;
+        GLLC_ENT_UNSET_FLAG(ent, GLLC_ENT_MODIFIED);
 }
 
 static void destruct(struct gllc_block_entity *ent)
@@ -67,6 +59,10 @@ static void destruct(struct gllc_block_entity *ent)
                 gllc_DE_destroy(point->DE);
 }
 
+const static struct gllc_block_entity_vtable g_vtable = {
+    .build = build,
+    .destroy = destruct};
+
 struct gllc_point *gllc_point_create(struct gllc_block *block, double x, double y)
 {
         struct gllc_point *ent = malloc(sizeof(struct gllc_point));
@@ -74,11 +70,7 @@ struct gllc_point *gllc_point_create(struct gllc_block *block, double x, double 
         {
                 memset(ent, 0, sizeof(struct gllc_point));
 
-                ent->__ent.__obj.prop_def = g_props_def;
-                ent->__ent.destroy = destruct;
-                ent->__ent.build = build;
-                ent->__ent.block = block;
-                ent->__ent.modified = 1;
+                GLLC_ENT_INIT(ent, g_props_def, block, &g_vtable);
 
                 ent->x = x;
                 ent->y = y;

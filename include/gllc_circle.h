@@ -12,7 +12,6 @@ struct gllc_circle
         double x;
         double y;
         double radius;
-        int filled;
 
         struct gllc_DE *DE_bound;
         struct gllc_DE *DE_fill;

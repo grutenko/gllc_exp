@@ -1,6 +1,7 @@
 #ifndef gllc_QTree_h
 #define gllc_QTree_h
 
+#include <stddef.h>
 #define GLLC_QTREE_MIN_SIZE 64
 
 struct gllc_block_entity;

@@ -22,6 +22,8 @@ static void destruct(struct gllc_block_entity *ent)
         struct gllc_polyline *pline = (struct gllc_polyline *)ent;
         if (pline->DE_bound)
                 gllc_DE_destroy(pline->DE_bound);
+        if (pline->DE_fill)
+                gllc_DE_destroy(pline->DE_fill);
 
         free(pline->ver);
 }
@@ -75,12 +77,12 @@ void gllc_polyline_build(const struct gllc_polyline_vertex *V, size_t V_count, s
                 G_indices[i] = i;
         }
 
-        struct gllc_DE_config DE_config = {
-            .V = G_vertices,
-            .I = G_indices,
-            .V_count = V_count,
-            .I_count = V_count,
-            .color = color};
+        struct gllc_DE_config DE_config = {0};
+        DE_config.V = G_vertices;
+        DE_config.I = G_indices;
+        DE_config.V_count = V_count;
+        DE_config.I_count = V_count;
+        DE_config.color = color;
 
         gllc_DE_update(DE_bound, &DE_config);
 
@@ -98,12 +100,12 @@ void gllc_polyline_build(const struct gllc_polyline_vertex *V, size_t V_count, s
                                 int indices_count = tessGetElementCount(tess);
                                 const int *indices = tessGetElements(tess);
 
-                                struct gllc_DE_config DE_config = {
-                                    .V = verts,
-                                    .I = (GLuint *)indices,
-                                    .V_count = vert_count,
-                                    .I_count = indices_count * 3,
-                                    .color = fcolor};
+                                struct gllc_DE_config DE_config = {0};
+                                DE_config.V = verts;
+                                DE_config.I = (GLuint *)indices;
+                                DE_config.V_count = vert_count;
+                                DE_config.I_count = indices_count * 3;
+                                DE_config.color = fcolor;
 
                                 gllc_DE_update(DE_fill, &DE_config);
                         }
@@ -120,41 +122,28 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
         if (GLLC_ENT_FLAG(ent, GLLC_ENT_CLOSED) && GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED))
         {
                 pline->DE_fill = gllc_DE_create(DBD, GL_TRIANGLES);
-
                 if (!pline->DE_fill)
-                {
                         return;
-                }
         }
         else
         {
                 if (pline->DE_fill)
-                {
                         gllc_DE_destroy(pline->DE_fill);
-                }
-
                 pline->DE_fill = NULL;
         }
-
         if (!pline->DE_bound)
         {
                 if (GLLC_ENT_FLAG(ent, GLLC_ENT_CLOSED))
                 {
                         pline->DE_bound = gllc_DE_create(DBD, GL_LINE_LOOP);
-
                         if (!pline->DE_bound)
-                        {
                                 return;
-                        }
                 }
                 else
                 {
                         pline->DE_bound = gllc_DE_create(DBD, GL_LINE_STRIP);
-
                         if (!pline->DE_bound)
-                        {
                                 return;
-                        }
                 }
         }
 
@@ -167,20 +156,9 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
                 pline->DE_bound->GL_type = GL_LINE_STRIP;
         }
 
-        int color = gllc_block_entity_color(ent);
-        int fcolor = gllc_block_entity_fcolor(ent);
-
-        GLfloat color_[] = {
-            (GLfloat)((color >> 16) & 0xff) / 255,
-            (GLfloat)((color >> 8) & 0xff) / 255,
-            (GLfloat)(color & 0xff) / 255,
-            1.0f};
-
-        GLfloat fcolor_[] = {
-            (GLfloat)((fcolor >> 16) & 0xff) / 255,
-            (GLfloat)((fcolor >> 8) & 0xff) / 255,
-            (GLfloat)(fcolor & 0xff) / 255,
-            1.0f};
+        GLfloat color_[4], fcolor_[4];
+        gllc_ent_color_4f(gllc_ent_color(ent), color_);
+        gllc_ent_color_4f(gllc_ent_fcolor(ent), fcolor_);
 
         gllc_polyline_build(
             pline->ver,
@@ -192,8 +170,12 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
             GLLC_ENT_FLAG(ent, GLLC_ENT_CLOSED),
             GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED));
 
-        ent->modified = 0;
+        GLLC_ENT_UNSET_FLAG(ent, GLLC_ENT_MODIFIED);
 }
+
+const static struct gllc_block_entity_vtable g_vtable = {
+    .build = build,
+    .destroy = destruct};
 
 struct gllc_polyline *gllc_polyline_create(struct gllc_block *block, int closed, int filled)
 {
@@ -202,31 +184,20 @@ struct gllc_polyline *gllc_polyline_create(struct gllc_block *block, int closed,
         {
                 memset(ent, 0, sizeof(struct gllc_polyline));
 
-                ent->__ent.__obj.prop_def = g_props_def;
-                ent->__ent.destroy = destruct;
-                ent->__ent.build = build;
-                ent->__ent.block = block;
+                GLLC_ENT_INIT(ent, g_props_def, block, &g_vtable);
+
                 if (closed)
                 {
                         GLLC_ENT_SET_FLAG(ent, GLLC_ENT_CLOSED);
                 }
+
                 if (filled)
                 {
                         GLLC_ENT_SET_FLAG(ent, GLLC_ENT_FILLED);
                 }
-                ent->__ent.props.color = -1;
-                ent->__ent.props.fcolor = -1;
-                ent->__ent.modified = 1;
         }
 
         return ent;
-_error:
-        if (ent->DE_bound)
-                gllc_DE_destroy(ent->DE_bound);
-
-        free(ent);
-
-        return 0;
 }
 
 static int push_ver(struct gllc_polyline *pline, double x, double y)
@@ -257,5 +228,5 @@ void gllc_polyline_add_ver(struct gllc_polyline *pline, double x, double y)
 {
         push_ver(pline, x, y);
 
-        pline->__ent.modified = 1;
+        GLLC_ENT_SET_FLAG(pline, GLLC_ENT_MODIFIED);
 }

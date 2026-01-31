@@ -7,7 +7,7 @@
 
 const struct gllc_prop_def g_block_entity_prop_def[] = {};
 
-int gllc_block_entity_color(struct gllc_block_entity *ent)
+int gllc_ent_color(struct gllc_block_entity *ent)
 {
         if (ent->props.color >= 0)
                 return ent->props.color;
@@ -18,7 +18,7 @@ int gllc_block_entity_color(struct gllc_block_entity *ent)
         return 0;
 }
 
-int gllc_block_entity_fcolor(struct gllc_block_entity *ent)
+int gllc_ent_fcolor(struct gllc_block_entity *ent)
 {
         if (ent->props.fcolor >= 0)
                 return ent->props.fcolor;
@@ -29,34 +29,47 @@ int gllc_block_entity_fcolor(struct gllc_block_entity *ent)
         return 0;
 }
 
-void gllc_block_entity_set_color(struct gllc_block_entity *ent, int color)
+inline void gllc_ent_color_4f(int color, float *out_)
+{
+        out_[0] = (GLfloat)((color >> 16) & 0xff) / 255;
+        out_[1] = (GLfloat)((color >> 8) & 0xff) / 255;
+        out_[2] = (GLfloat)(color & 0xff) / 255;
+        out_[3] = 1.0f;
+}
+
+void gllc_ent_set_color(struct gllc_block_entity *ent, int color)
 {
         ent->props.color = color;
-        ent->modified = 1;
+
+        GLLC_ENT_SET_FLAG(ent, GLLC_ENT_MODIFIED);
 }
 
-void gllc_block_entity_set_fcolor(struct gllc_block_entity *ent, int fcolor)
+void gllc_ent_set_fcolor(struct gllc_block_entity *ent, int fcolor)
 {
         ent->props.fcolor = fcolor;
-        ent->modified = 1;
+
+        GLLC_ENT_SET_FLAG(ent, GLLC_ENT_MODIFIED);
 }
 
-void gllc_block_entity_set_layer(struct gllc_block_entity *ent, struct gllc_layer *layer)
+void gllc_ent_set_layer(struct gllc_block_entity *ent, struct gllc_layer *layer)
 {
         ent->layer = layer;
-        ent->modified = (ent->props.color == -1 || ent->props.color == -1);
+        if (ent->props.color == -1 || ent->props.fcolor == -1)
+        {
+                GLLC_ENT_SET_FLAG(ent, GLLC_ENT_MODIFIED);
+        }
 }
 
-void gllc_block_entity_destroy(struct gllc_block_entity *ent)
+void gllc_ent_destroy(struct gllc_block_entity *ent)
 {
-        if (ent->destroy)
+        if (ent->vtable->destroy)
         {
-                ent->destroy(ent);
+                ent->vtable->destroy(ent);
         }
         free(ent);
 }
 
-struct gllc_block_entity *gllc_block_entity_get_next(struct gllc_block_entity *ent)
+struct gllc_block_entity *gllc_ent_get_next(struct gllc_block_entity *ent)
 {
         if (!ent)
         {

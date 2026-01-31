@@ -1,4 +1,5 @@
 #include "gllc_rect.h"
+#include "gllc_block_entity.h"
 #include "gllc_draw_buffer.h"
 #include "include/gllc_block.h"
 
@@ -11,13 +12,6 @@ static const struct gllc_prop_def g_internal_props_def[] = {{-1, -1, 0, 0, 0}};
 static const struct gllc_prop_def *g_props_def[] = {g_block_entity_prop_def,
                                                     g_internal_props_def,
                                                     0};
-
-static inline void _swap(double *a, double *b)
-{
-        double t = *a;
-        *a = *b;
-        *b = t;
-}
 
 #define PI 3.14159265358979323846
 
@@ -39,12 +33,12 @@ void gllc_rect_build(double x, double y, double width, double height, double ang
 
         GLuint I[] = {0, 1, 2, 3};
 
-        struct gllc_DE_config DE_conf = {
-            .V = V,
-            .I = I,
-            .color = color,
-            .V_count = 4,
-            .I_count = 4};
+        struct gllc_DE_config DE_conf = {0};
+        DE_conf.V = V;
+        DE_conf.I = I;
+        DE_conf.color = color;
+        DE_conf.V_count = 4;
+        DE_conf.I_count = 4;
 
         gllc_DE_update(DE_bound, &DE_conf);
 
@@ -54,12 +48,12 @@ void gllc_rect_build(double x, double y, double width, double height, double ang
                     0, 1, 2,
                     0, 2, 3};
 
-                struct gllc_DE_config DE_conf = {
-                    .V = V,
-                    .I = I_fill,
-                    .color = fcolor,
-                    .V_count = 4,
-                    .I_count = 6};
+                struct gllc_DE_config DE_conf = {0};
+                DE_conf.V = V;
+                DE_conf.I = I_fill;
+                DE_conf.color = fcolor;
+                DE_conf.V_count = 4;
+                DE_conf.I_count = 6;
 
                 gllc_DE_update(DE_fill, &DE_conf);
         }
@@ -69,49 +63,29 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 {
         struct gllc_rect *rect = (struct gllc_rect *)ent;
 
-        if (rect->filled)
+        if (GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED))
         {
                 rect->DE_fill = gllc_DE_create(DBD, GL_TRIANGLES);
-
                 if (!rect->DE_fill)
-                {
                         return;
-                }
         }
         else
         {
                 if (rect->DE_fill)
-                {
                         gllc_DE_destroy(rect->DE_fill);
-                }
-
                 rect->DE_fill = NULL;
         }
 
         if (!rect->DE_bound)
         {
                 rect->DE_bound = gllc_DE_create(DBD, GL_LINE_LOOP);
-
                 if (!rect->DE_bound)
-                {
                         return;
-                }
         }
 
-        int color = gllc_block_entity_color(ent);
-        int fcolor = gllc_block_entity_fcolor(ent);
-
-        GLfloat color_[] = {
-            (GLfloat)((color >> 16) & 0xff) / 255,
-            (GLfloat)((color >> 8) & 0xff) / 255,
-            (GLfloat)(color & 0xff) / 255,
-            1.0f};
-
-        GLfloat fcolor_[] = {
-            (GLfloat)((fcolor >> 16) & 0xff) / 255,
-            (GLfloat)((fcolor >> 8) & 0xff) / 255,
-            (GLfloat)(fcolor & 0xff) / 255,
-            1.0f};
+        GLfloat color_[4], fcolor_[4];
+        gllc_ent_color_4f(gllc_ent_color(ent), color_);
+        gllc_ent_color_4f(gllc_ent_fcolor(ent), fcolor_);
 
         gllc_rect_build(
             rect->x,
@@ -123,9 +97,9 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
             fcolor_,
             rect->DE_bound,
             rect->DE_fill,
-            rect->filled);
+            GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED));
 
-        ent->modified = 0;
+        GLLC_ENT_UNSET_FLAG(ent, GLLC_ENT_MODIFIED);
 }
 
 static void destruct(struct gllc_block_entity *ent)
@@ -133,7 +107,13 @@ static void destruct(struct gllc_block_entity *ent)
         struct gllc_rect *rect = (struct gllc_rect *)ent;
         if (rect->DE_bound)
                 gllc_DE_destroy(rect->DE_bound);
+        if (rect->DE_fill)
+                gllc_DE_destroy(rect->DE_fill);
 }
+
+const static struct gllc_block_entity_vtable g_vtable = {
+    .build = build,
+    .destroy = destruct};
 
 struct gllc_rect *gllc_rect_create(struct gllc_block *block, double x, double y, double width, double height, double angle, int filled)
 {
@@ -142,24 +122,19 @@ struct gllc_rect *gllc_rect_create(struct gllc_block *block, double x, double y,
         {
                 memset(ent, 0, sizeof(struct gllc_rect));
 
-                ent->__ent.__obj.prop_def = g_props_def;
-                ent->__ent.destroy = destruct;
-                ent->__ent.build = build;
-                ent->__ent.block = block;
-                ent->__ent.modified = 1;
+                GLLC_ENT_INIT(ent, g_props_def, block, &g_vtable);
 
                 ent->x = x;
                 ent->y = y;
                 ent->width = width;
                 ent->height = height;
                 ent->angle = angle;
-                ent->filled = filled;
-        }
-        return ent;
-_error:
-        if (ent->DE_bound)
-                gllc_DE_destroy(ent->DE_bound);
-        free(ent);
 
-        return 0;
+                if (filled)
+                {
+                        GLLC_ENT_SET_FLAG(ent, GLLC_ENT_FILLED);
+                }
+        }
+
+        return ent;
 }

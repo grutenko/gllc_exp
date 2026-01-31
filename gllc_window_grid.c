@@ -109,14 +109,14 @@ static void render(struct gllc_W_grid *grid)
 
         vertex_idx = 0;
 
-#define PUSH_LINES(_C, _G, _X0, _Y0, _X1, _Y1, INC_VAR)                                                         \
-        for (i = 0; i < (_C); i++)                                                                              \
-        {                                                                                                       \
-                grid->V[vertex_idx++] = (GLfloat)(_X0);                                                         \
-                grid->V[vertex_idx++] = (GLfloat)(_Y0);                                                         \
-                grid->V[vertex_idx++] = (GLfloat)(_X1);                                                         \
-                grid->V[vertex_idx++] = (GLfloat)(_Y1);                                                         \
-                INC_VAR += (_G);                                                                                \
+#define PUSH_LINES(_C, _G, _X0, _Y0, _X1, _Y1, INC_VAR) \
+        for (i = 0; i < (_C); i++)                      \
+        {                                               \
+                grid->V[vertex_idx++] = (GLfloat)(_X0); \
+                grid->V[vertex_idx++] = (GLfloat)(_Y0); \
+                grid->V[vertex_idx++] = (GLfloat)(_X1); \
+                grid->V[vertex_idx++] = (GLfloat)(_Y1); \
+                INC_VAR += (_G);                        \
         }
 
         PUSH_LINES(count_x0, gap_x, X, grid->wy0, X, grid->wy1, X);
@@ -149,9 +149,6 @@ void gllc_W_grid_draw(struct gllc_W_grid *grid, GLuint u_color_loc)
                 glBindVertexArray(grid->VAO);
         }
 
-        glEnable(GL_LINE_SMOOTH);
-        glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-
         float color[4] = {
             grid->color[0] + (grid->clear_color[0] - grid->color[0]) * 0.5f,
             grid->color[1] + (grid->clear_color[1] - grid->color[1]) * 0.5f,
@@ -163,10 +160,6 @@ void gllc_W_grid_draw(struct gllc_W_grid *grid, GLuint u_color_loc)
 
         glUniform4f(u_color_loc, grid->color[0], grid->color[1], grid->color[2], grid->color[3]);
         glDrawArrays(GL_LINES, grid->V0_count, grid->V1_count);
-
-        glBindVertexArray(0);
-
-        glDisable(GL_LINE_SMOOTH);
 }
 
 void gllc_W_grid_cleanup(struct gllc_W_grid *grid)

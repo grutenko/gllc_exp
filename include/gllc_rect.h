@@ -14,7 +14,6 @@ struct gllc_rect
         double width;
         double height;
         double angle;
-        int filled;
 
         struct gllc_DE *DE_bound;
         struct gllc_DE *DE_fill;

@@ -53,17 +53,10 @@ void gllc_W_cursor_draw(struct gllc_W_cursor *c, GLuint u_color_loc, int x, int 
             (GLfloat)x + 4.5f, (GLfloat)y + 4.5f,
             (GLfloat)x - 4.5f, (GLfloat)y + 4.5f};
 
-        glEnable(GL_LINE_SMOOTH);
-        glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-
         glBufferSubData(GL_ARRAY_BUFFER, 0, CURSOR_VBO_SIZE, V);
 
-        glUniform4f(u_color_loc, 0.0f, 1.0f, 1.0f, 1.0f);
+        glUniform4f(u_color_loc, 0.0f, 0.0f, 0.0f, 1.0f);
 
         glDrawArrays(GL_LINES, 0, CURSOR_LINES_VCOUNT * 2);
         glDrawElements(GL_LINE_LOOP, CURSOR_BOX_VCOUNT, GL_UNSIGNED_INT, 0);
-
-        glBindVertexArray(0);
-
-        glDisable(GL_LINE_SMOOTH);
 }

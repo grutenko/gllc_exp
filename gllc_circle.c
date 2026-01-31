@@ -31,12 +31,12 @@ void gllc_circle_build(double x, double y, double radius, GLfloat *color, GLfloa
                 I[i] = i;
         }
 
-        struct gllc_DE_config DE_conf = {
-            .V = V,
-            .I = I,
-            .color = color,
-            .V_count = N,
-            .I_count = N};
+        struct gllc_DE_config DE_conf = {};
+        DE_conf.V = V,
+        DE_conf.I = I,
+        DE_conf.color = color,
+        DE_conf.V_count = N,
+        DE_conf.I_count = N;
 
         gllc_DE_update(DE_bound, &DE_conf);
 
@@ -61,12 +61,12 @@ void gllc_circle_build(double x, double y, double radius, GLfloat *color, GLfloa
                 I_fill[idx++] = N;
                 I_fill[idx++] = 1;
 
-                struct gllc_DE_config DE_conf_fill = {
-                    .V = V_fill,
-                    .I = I_fill,
-                    .color = fcolor,
-                    .V_count = N + 1,
-                    .I_count = 3 * N};
+                struct gllc_DE_config DE_conf_fill = {0};
+                DE_conf_fill.V = V_fill;
+                DE_conf_fill.I = I_fill;
+                DE_conf_fill.color = fcolor;
+                DE_conf_fill.V_count = N + 1;
+                DE_conf_fill.I_count = 3 * N;
 
                 gllc_DE_update(DE_fill, &DE_conf_fill);
         }
@@ -76,49 +76,28 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 {
         struct gllc_circle *circle = (struct gllc_circle *)ent;
 
-        if (circle->filled)
+        if (GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED))
         {
                 circle->DE_fill = gllc_DE_create(DBD, GL_TRIANGLE_FAN);
-
                 if (!circle->DE_fill)
-                {
                         return;
-                }
         }
         else
         {
                 if (circle->DE_fill)
-                {
                         gllc_DE_destroy(circle->DE_fill);
-                }
-
                 circle->DE_fill = NULL;
         }
-
         if (!circle->DE_bound)
         {
                 circle->DE_bound = gllc_DE_create(DBD, GL_LINE_LOOP);
-
                 if (!circle->DE_bound)
-                {
                         return;
-                }
         }
 
-        int color = gllc_block_entity_color(ent);
-        int fcolor = gllc_block_entity_fcolor(ent);
-
-        GLfloat color_[] = {
-            (GLfloat)((color >> 16) & 0xff) / 255,
-            (GLfloat)((color >> 8) & 0xff) / 255,
-            (GLfloat)(color & 0xff) / 255,
-            1.0f};
-
-        GLfloat fcolor_[] = {
-            (GLfloat)((fcolor >> 16) & 0xff) / 255,
-            (GLfloat)((fcolor >> 8) & 0xff) / 255,
-            (GLfloat)(fcolor & 0xff) / 255,
-            1.0f};
+        GLfloat color_[4], fcolor_[4];
+        gllc_ent_color_4f(gllc_ent_color(ent), color_);
+        gllc_ent_color_4f(gllc_ent_fcolor(ent), fcolor_);
 
         gllc_circle_build(
             circle->x,
@@ -128,9 +107,9 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
             fcolor_,
             circle->DE_bound,
             circle->DE_fill,
-            circle->filled);
+            GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED));
 
-        ent->modified = 0;
+        GLLC_ENT_UNSET_FLAG(ent, GLLC_ENT_MODIFIED);
 }
 
 static void destruct(struct gllc_block_entity *ent)
@@ -138,10 +117,15 @@ static void destruct(struct gllc_block_entity *ent)
         struct gllc_circle *circle = (struct gllc_circle *)ent;
 
         if (circle->DE_bound)
-        {
                 gllc_DE_destroy(circle->DE_bound);
-        }
+
+        if (circle->DE_fill)
+                gllc_DE_destroy(circle->DE_fill);
 }
+
+const static struct gllc_block_entity_vtable g_vtable = {
+    .build = build,
+    .destroy = destruct};
 
 struct gllc_circle *gllc_circle_create(struct gllc_block *block, double x, double y, double radius, int filled)
 {
@@ -150,28 +134,17 @@ struct gllc_circle *gllc_circle_create(struct gllc_block *block, double x, doubl
         {
                 memset(ent, 0, sizeof(struct gllc_circle));
 
-                ent->__ent.__obj.prop_def = g_props_def;
-                ent->__ent.destroy = destruct;
-                ent->__ent.build = build;
-                ent->__ent.block = block;
-                ent->__ent.modified = 1;
+                GLLC_ENT_INIT(ent, g_props_def, block, &g_vtable);
 
                 ent->x = x;
                 ent->y = y;
                 ent->radius = radius;
-                ent->filled = filled;
-        }
-        return ent;
-_error:
-        if (ent->DE_bound)
-        {
-                gllc_DE_destroy(ent->DE_bound);
-        }
-        if (ent->DE_fill)
-        {
-                gllc_DE_destroy(ent->DE_fill);
-        }
-        free(ent);
 
-        return 0;
+                if (filled)
+                {
+                        GLLC_ENT_SET_FLAG(ent, GLLC_ENT_FILLED);
+                }
+        }
+
+        return ent;
 }

@@ -199,9 +199,40 @@ static void on_mouse_click(struct gllc_WN *wn, int x, int y, int mode, int actio
 
 static void draw(struct gllc_window *w);
 
+static LARGE_INTEGER g_freq;
+static LARGE_INTEGER g_last;
+static int g_frame_count = 0;
+
+void fps_init()
+{
+        QueryPerformanceFrequency(&g_freq);
+        QueryPerformanceCounter(&g_last);
+}
+
+static void fps_tick()
+{
+        g_frame_count++;
+
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
+
+        double elapsed = (double)(now.QuadPart - g_last.QuadPart) / g_freq.QuadPart;
+
+        if (elapsed >= 1.0)
+        {
+                double fps = g_frame_count / elapsed;
+                printf("FPS(mousemove): %.2f\n", fps);
+
+                g_frame_count = 0;
+                g_last = now;
+        }
+}
+
 static void on_mouse_move(struct gllc_WN *wn, int x, int y, void *USER_1)
 {
         struct gllc_window *w = (struct gllc_window *)USER_1;
+
+        fps_tick();
 
         if (g_drag.dragging)
         {
@@ -224,7 +255,7 @@ static void on_mouse_move(struct gllc_WN *wn, int x, int y, void *USER_1)
         w->cursor_x = x;
         w->cursor_y = y;
 
-        draw(w);
+        gllc_WN_dirty(w->native);
 }
 
 static void on_mouse_scroll(struct gllc_WN *wn, int dx, int dy, void *USER_1)
@@ -250,7 +281,7 @@ static void on_mouse_scroll(struct gllc_WN *wn, int dx, int dy, void *USER_1)
 
         update_viewport(w);
 
-        draw(w);
+        gllc_WN_dirty(w->native);
 }
 
 static size_t draw_DBG(GLuint color_loc, GLuint flags_loc, GLuint center_point_loc, struct gllc_DBG *DBG, GLfloat wx0, GLfloat wy0, GLfloat wx1, GLfloat wy1)
@@ -260,7 +291,7 @@ static size_t draw_DBG(GLuint color_loc, GLuint flags_loc, GLuint center_point_l
         {
                 if (!(DBG->DE[i].BBox_x1 > wx0 && DBG->DE[i].BBox_y1 > wy0 && DBG->DE[i].BBox_x0 < wx1 && DBG->DE[i].BBox_y0 < wy1))
                 {
-                        continue;
+                         continue;
                 }
 
                 glUniform1ui(flags_loc, DBG->DE[i].flags);
@@ -340,16 +371,15 @@ static void draw(struct gllc_window *w)
         glBindVertexArray(w->DBG.VAO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG.EBO);
 
-        double wx0 = -(int)(w->width / 2) * w->scale_factor - w->dx;
-        double wy0 = -(int)(w->height / 2) * w->scale_factor - w->dy;
-        double wx1 = (int)(w->width / 2) * w->scale_factor - w->dx;
-        double wy1 = (int)(w->height / 2) * w->scale_factor - w->dy;
+        double wx0, wy0, wx1, wy1;
+        gllc_window_wnd_to_drw(w, 0.0f, 0.0f, &wx0, &wy0);
+        gllc_window_wnd_to_drw(w, (double)w->width, (double)w->height, &wx1, &wy1);
 
         draw_DBG(w->GL_u_color_loc, w->GL_u_flags_loc, w->GL_u_center_point_loc, &w->DBG, wx0, wy0, wx1, wy1);
 
-        glBindVertexArray(w->DBG_interactive.VAO);
+        /*glBindVertexArray(w->DBG_interactive.VAO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_interactive.EBO);
-        draw_DBG(w->GL_u_color_loc, w->GL_u_flags_loc, w->GL_u_center_point_loc, &w->DBG_interactive, wx0, wy0, wx1, wy1);
+        draw_DBG(w->GL_u_color_loc, w->GL_u_flags_loc, w->GL_u_center_point_loc, &w->DBG_interactive, wx0, wy0, wx1, wy1);*/
 
         if (w->in_selection)
         {
@@ -358,9 +388,9 @@ static void draw(struct gllc_window *w)
 
         glUniformMatrix4fv(w->GL_u_MVP_loc, 1, GL_FALSE, (const float *)w->GL_m_MVP_screen);
 
-        glBindVertexArray(w->DBG_screen.VAO);
+        /*glBindVertexArray(w->DBG_screen.VAO);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_screen.EBO);
-        draw_DBG(w->GL_u_color_loc, w->GL_u_flags_loc, w->GL_u_center_point_loc, &w->DBG_screen, wx0, wy0, wx1, wy1);
+        draw_DBG(w->GL_u_color_loc, w->GL_u_flags_loc, w->GL_u_center_point_loc, &w->DBG_screen, wx0, wy0, wx1, wy1);*/
 
         gllc_W_cursor_draw(&w->cursor, w->GL_u_color_loc, w->cursor_x, w->cursor_y, w->width, w->height);
 
@@ -391,6 +421,8 @@ struct gllc_block *gllc_window_get_block(struct gllc_window *window)
 
 struct gllc_window *gllc_window_create(void *parent)
 {
+        fps_init();
+
         struct gllc_window *w = malloc(sizeof(struct gllc_window));
         if (!w)
         {

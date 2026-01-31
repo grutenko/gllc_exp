@@ -52,18 +52,11 @@ void gllc_W_selection_draw(struct gllc_W_selection *sel, GLuint u_color_loc, dou
             (GLfloat)x1 + 0.5f, (GLfloat)y1 + 0.5f,
             (GLfloat)x0 - 0.5f, (GLfloat)y1 + 0.5f};
 
-        glEnable(GL_LINE_SMOOTH);
-        glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-
         glBufferSubData(GL_ARRAY_BUFFER, 0, SEL_VBO_SIZE, V);
 
-        glUniform4f(u_color_loc, 1.0f, 1.0f, 1.0f, 1.0f);
+        glUniform4f(u_color_loc, 0.0f, 0.0f, 0.0f, 1.0f);
         glDrawElements(GL_LINE_LOOP, SEL_LINES_ICOUNT, GL_UNSIGNED_INT, 0);
 
-        glUniform4f(u_color_loc, 1.0f, 1.0f, 1.0f, 0.3f);
+        glUniform4f(u_color_loc, 0.0f, 0.0f, 0.0f, 0.3f);
         glDrawElements(GL_TRIANGLES, SEL_RECT_ICOUNT, GL_UNSIGNED_INT, (void *)(sizeof(GLuint) * SEL_LINES_ICOUNT));
-
-        glBindVertexArray(0);
-
-        glDisable(GL_LINE_SMOOTH);
 }
