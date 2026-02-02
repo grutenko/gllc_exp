@@ -111,9 +111,22 @@ static void destruct(struct gllc_block_entity *ent)
                 gllc_DE_destroy(rect->DE_fill);
 }
 
+static int bbox(struct gllc_block_entity *ent, double *bbox_x0, double *bbox_y0, double *bbox_x1, double *bbox_y1)
+{
+        return 1;
+}
+
+static int picked(struct gllc_block_entity *ent, double x0, double y0, double x1, double y1)
+{
+        struct gllc_rect *c = (struct gllc_rect *)ent;
+
+        return 1;
+}
+
 const static struct gllc_block_entity_vtable g_vtable = {
     .build = build,
-    .destroy = destruct};
+    .destroy = destruct,
+    .bbox = bbox};
 
 struct gllc_rect *gllc_rect_create(struct gllc_block *block, double x, double y, double width, double height, double angle, int filled)
 {

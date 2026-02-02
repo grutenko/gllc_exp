@@ -47,10 +47,10 @@ void gllc_W_selection_draw(struct gllc_W_selection *sel, GLuint u_color_loc, dou
         int vcount = 0;
 
         GLfloat V[] = {
-            (GLfloat)x0 - 0.5f, (GLfloat)y0 - 0.5f,
-            (GLfloat)x1 + 0.5f, (GLfloat)y0 - 0.5f,
-            (GLfloat)x1 + 0.5f, (GLfloat)y1 + 0.5f,
-            (GLfloat)x0 - 0.5f, (GLfloat)y1 + 0.5f};
+            (GLfloat)x0, (GLfloat)y0,
+            (GLfloat)x1, (GLfloat)y0,
+            (GLfloat)x1, (GLfloat)y1,
+            (GLfloat)x0, (GLfloat)y1};
 
         glBufferSubData(GL_ARRAY_BUFFER, 0, SEL_VBO_SIZE, V);
 

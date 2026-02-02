@@ -9,7 +9,8 @@ struct gllc_layer;
 struct gllc_drawing;
 struct gllc_polyline;
 struct gllc_rect;
-struct gllc_QTree_node;
+struct gllc_point;
+struct gllc_SG_map;
 
 struct gllc_block
 {
@@ -23,7 +24,7 @@ struct gllc_block
         struct gllc_block_entity *ent_head;
         struct gllc_block_entity *ent_tail;
         size_t ent_count;
-        struct gllc_QTree_node *Q_tree;
+        struct gllc_SG_cell *sparse_grid;
         struct gllc_layer *layer_head;
         struct gllc_layer *layer_tail;
         size_t layer_count;
@@ -48,5 +49,9 @@ struct gllc_circle *gllc_block_add_circle(struct gllc_block *block, double x, do
 void gllc_block_remove_ent(struct gllc_block *block, struct gllc_block_entity *ent);
 
 struct gllc_point *gllc_block_add_point(struct gllc_block *block, double x, double y);
+
+struct gllc_block_entity *gllc_block_pick_ent(struct gllc_block *block, double x, double y);
+
+void gllc_block_ent_select(struct gllc_block *block, struct gllc_block_entity *ent);
 
 #endif

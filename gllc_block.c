@@ -1,14 +1,15 @@
 #include "gllc_block.h"
-#include "gllc_QTree.h"
 #include "gllc_block_entity.h"
 #include "gllc_circle.h"
 #include "gllc_draw_buffer.h"
 #include "gllc_object.h"
 #include "gllc_polyline.h"
 #include "gllc_rect.h"
+#include "gllc_sparse_grid.h"
 #include "include/gllc_point.h"
 
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -115,15 +116,38 @@ struct gllc_point *gllc_block_add_point(struct gllc_block *block, double x, doub
 
 void gllc_block_update(struct gllc_block *block)
 {
+        double bbox_x0, bbox_y0, bbox_x1, bbox_y1;
+
         struct gllc_block_entity *ent = block->ent_head;
         while (ent)
         {
                 if (GLLC_ENT_FLAG(ent, GLLC_ENT_MODIFIED))
                 {
                         ent->vtable->build(ent, &block->DBD);
+                        int ok = ent->vtable->bbox(ent, &bbox_x0, &bbox_y0, &bbox_x1, &bbox_y1);
+
+                        if (!GLLC_ENT_FLAG(ent, GLLC_ENT_INITIAL))
+                        {
+                                gllc_SG_remove(&block->sparse_grid, ent);
+                        }
+
+                        if (ok)
+                        {
+                                bbox_x0 -= 5.0f;
+                                bbox_y0 -= 5.0f;
+                                bbox_x1 += 5.0f;
+                                bbox_y1 += 5.0f;
+                                gllc_SG_push(&block->sparse_grid, ent, bbox_x0, bbox_y0, bbox_x1, bbox_y1);
+
+                                GLLC_ENT_UNSET_FLAG(ent, GLLC_ENT_INITIAL);
+                        }
                 }
                 ent = ent->next;
         }
+}
+
+void gllc_block_ent_select(struct gllc_block *block, struct gllc_block_entity *ent)
+{
 }
 
 void gllc_block_destroy(struct gllc_block *block)
@@ -137,6 +161,27 @@ void gllc_block_destroy(struct gllc_block *block)
         }
         gllc_DBD_destroy(&block->DBD);
         gllc_object_cleanup(&block->__obj);
-        gllc_QTree_destroy(&block->Q_tree);
+        gllc_SG_cleanup(&block->sparse_grid);
         free(block);
+}
+
+struct gllc_block_entity *gllc_block_pick_ent(struct gllc_block *block, double x, double y)
+{
+        struct gllc_block_entity *ent = NULL;
+        struct gllc_SG_cell *cell = gllc_SG_pick_cell(&block->sparse_grid, x, y);
+
+        if (!cell)
+                return NULL;
+
+        int i;
+        for (i = 0; i < cell->ent_size; i++)
+        {
+                if (cell->ent[i]->vtable->picked(cell->ent[i], x, y))
+                {
+                        ent = cell->ent[i];
+                        break;
+                }
+        }
+
+        return ent;
 }

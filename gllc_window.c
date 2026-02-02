@@ -1,6 +1,7 @@
 #include "gllc_window.h"
 #include "glad.h"
 #include "gllc_block.h"
+#include "gllc_block_entity.h"
 #include "gllc_draw_buffer.h"
 #include "gllc_object.h"
 #include "gllc_window_cursor.h"
@@ -187,6 +188,8 @@ static void on_mouse_click(struct gllc_WN *wn, int x, int y, int mode, int actio
                         w->sel_y0 = (double)((w->height - y) - (int)(w->height / 2)) * w->scale_factor - w->dy;
                         w->sel_x1 = w->sel_x0 + 1.0f * w->scale_factor;
                         w->sel_y1 = w->sel_y0 + 1.0f * w->scale_factor;
+
+                        struct gllc_block_entity *ent = gllc_block_pick_ent(w->block, w->sel_x0, w->sel_y0);
                 }
                 else if (action == 0)
                 {
@@ -291,7 +294,7 @@ static size_t draw_DBG(GLuint color_loc, GLuint flags_loc, GLuint center_point_l
         {
                 if (!(DBG->DE[i].BBox_x1 > wx0 && DBG->DE[i].BBox_y1 > wy0 && DBG->DE[i].BBox_x0 < wx1 && DBG->DE[i].BBox_y0 < wy1))
                 {
-                         continue;
+                        continue;
                 }
 
                 glUniform1ui(flags_loc, DBG->DE[i].flags);
@@ -467,6 +470,7 @@ struct gllc_window *gllc_window_create(void *parent)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glBlendEquation(GL_FUNC_ADD);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDisable(GL_CULL_FACE);
 
         w->GL_program = load_GL_program();
 

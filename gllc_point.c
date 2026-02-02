@@ -59,9 +59,37 @@ static void destruct(struct gllc_block_entity *ent)
                 gllc_DE_destroy(point->DE);
 }
 
+static int bbox(struct gllc_block_entity *ent, double *bbox_x0, double *bbox_y0, double *bbox_x1, double *bbox_y1)
+{
+        struct gllc_point *point = (struct gllc_point *)ent;
+
+        *bbox_x0 = point->x;
+        *bbox_y0 = point->y;
+        *bbox_x1 = point->x;
+        *bbox_y1 = point->y;
+
+        return 1;
+}
+
+static int picked(struct gllc_block_entity *ent, double x, double y)
+{
+        return 1;
+}
+
+static int selected(struct gllc_block_entity *ent, double x0, double y0, double x1, double y1)
+{
+        struct gllc_point *p = (struct gllc_point *)ent;
+
+        return x0 <= p->x && y0 <= p->y && x1 >= p->x && y1 >= p->y;
+}
+
 const static struct gllc_block_entity_vtable g_vtable = {
     .build = build,
-    .destroy = destruct};
+    .destroy = destruct,
+    .bbox = bbox,
+    .picked = picked,
+    .selected = selected,
+    .type = GLLC_ENT_POINT};
 
 struct gllc_point *gllc_point_create(struct gllc_block *block, double x, double y)
 {

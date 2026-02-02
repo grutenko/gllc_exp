@@ -73,7 +73,7 @@ set(SOURCES glad.c
   gllc_window_selection.c
   gllc_text.c
   gllc_point.c
-  gllc_QTree.c
+  gllc_sparse_grid.c
   gllc_line_geom.c
   ${GENERATED_HEADERS}
   ${GENERATED_FONT_HEADERS}

@@ -69,8 +69,8 @@ static void render(struct gllc_W_grid *grid)
 
         count_x0 = (int)(fabs(grid->wx1 - grid->wx0) / gap_x) + 1;
         count_y0 = (int)(fabs(grid->wy1 - grid->wy0) / gap_y) + 1;
-        count_x1 = (int)(fabs(grid->wx1 - grid->wx0) / (gap_x * 5.0)) + 1;
-        count_y1 = (int)(fabs(grid->wy1 - grid->wy0) / (gap_y * 5.0)) + 1;
+        count_x1 = (int)(fabs(grid->wx1 - grid->wx0) / (gap_x * 10.0)) + 1;
+        count_y1 = (int)(fabs(grid->wy1 - grid->wy0) / (gap_y * 10.0)) + 1;
 
         VBO_size = sizeof(GLfloat) * 4 * (count_x0 + count_y0 + count_x1 + count_y1);
 
@@ -122,8 +122,8 @@ static void render(struct gllc_W_grid *grid)
         PUSH_LINES(count_x0, gap_x, X, grid->wy0, X, grid->wy1, X);
         PUSH_LINES(count_y0, gap_y, grid->wx0, Y, grid->wx1, Y, Y);
 
-        gap_x *= 5;
-        gap_y *= 5;
+        gap_x *= 10;
+        gap_y *= 10;
         X = ceil(grid->wx0 / gap_x) * gap_x;
         Y = ceil(grid->wy0 / gap_y) * gap_y;
 

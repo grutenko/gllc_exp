@@ -123,9 +123,39 @@ static void destruct(struct gllc_block_entity *ent)
                 gllc_DE_destroy(circle->DE_fill);
 }
 
+static int bbox(struct gllc_block_entity *ent, double *bbox_x0, double *bbox_y0, double *bbox_x1, double *bbox_y1)
+{
+        struct gllc_circle *circle = (struct gllc_circle *)ent;
+
+        *bbox_x0 = circle->x - circle->radius;
+        *bbox_y0 = circle->y - circle->radius;
+        *bbox_x1 = circle->x + circle->radius;
+        *bbox_y1 = circle->y + circle->radius;
+
+        return 1;
+}
+
+static int picked(struct gllc_block_entity *ent, double x, double y)
+{
+        struct gllc_circle *c = (struct gllc_circle *)ent;
+
+        return 1;
+}
+
+static int selected(struct gllc_block_entity *ent, double x0, double y0, double x1, double y1)
+{
+        struct gllc_circle *c = (struct gllc_circle *)ent;
+
+        return 0;
+}
+
 const static struct gllc_block_entity_vtable g_vtable = {
     .build = build,
-    .destroy = destruct};
+    .destroy = destruct,
+    .bbox = bbox,
+    .picked = picked,
+    .selected = selected,
+    .type = GLLC_ENT_CIRCLE};
 
 struct gllc_circle *gllc_circle_create(struct gllc_block *block, double x, double y, double radius, int filled)
 {

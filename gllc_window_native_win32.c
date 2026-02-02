@@ -34,6 +34,8 @@ wglChoosePixelFormatARB_type *wglChoosePixelFormatARB;
 #define WGL_COLOR_BITS_ARB 0x2014
 #define WGL_DEPTH_BITS_ARB 0x2022
 #define WGL_STENCIL_BITS_ARB 0x2023
+#define WGL_SAMPLE_BUFFERS_ARB 0x2041
+#define WGL_SAMPLES_ARB 0x2042
 
 #define WGL_FULL_ACCELERATION_ARB 0x2027
 #define WGL_TYPE_RGBA_ARB 0x202B
@@ -154,6 +156,8 @@ static HGLRC init_opengl(HDC real_dc)
             WGL_COLOR_BITS_ARB, 32,
             WGL_DEPTH_BITS_ARB, 24,
             WGL_STENCIL_BITS_ARB, 8,
+            WGL_SAMPLE_BUFFERS_ARB, 1, // включаем MSAA
+            WGL_SAMPLES_ARB, 2,        // 4x сглаживание
             0};
 
         int pixel_format;

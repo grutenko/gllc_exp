@@ -173,9 +173,79 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
         GLLC_ENT_UNSET_FLAG(ent, GLLC_ENT_MODIFIED);
 }
 
+static int bbox(struct gllc_block_entity *ent, double *bbox_x0, double *bbox_y0, double *bbox_x1, double *bbox_y1)
+{
+        struct gllc_polyline *pline = (struct gllc_polyline *)ent;
+
+        if (pline->ver_size == 0)
+                return 0;
+
+        double minx = pline->ver[0].x;
+        double miny = pline->ver[0].y;
+        double maxx = minx;
+        double maxy = miny;
+
+        for (int i = 1; i < pline->ver_size; i++)
+        {
+                double x = pline->ver[i].x;
+                double y = pline->ver[i].y;
+
+                if (x < minx)
+                        minx = x;
+                if (y < miny)
+                        miny = y;
+                if (x > maxx)
+                        maxx = x;
+                if (y > maxy)
+                        maxy = y;
+        }
+
+        *bbox_x0 = minx;
+        *bbox_y0 = miny;
+        *bbox_x1 = maxx;
+        *bbox_y1 = maxy;
+
+        return 1;
+}
+
+static int picked(struct gllc_block_entity *ent, double x, double y)
+{
+        struct gllc_polyline *pl = (struct gllc_polyline *)ent;
+
+        int cnt = 0;
+        int i;
+        for (i = 0; i < pl->ver_size - 1; i++)
+        {
+                double x1 = pl->ver[i].x, y1 = pl->ver[i].y;
+                double x2 = pl->ver[i + 1].x, y2 = pl->ver[i + 1].y;
+
+                if ((y1 > y) != (y2 > y))
+                {
+                        double xint = x1 + (y - y1) * (x2 - x1) / (y2 - y1);
+                        if (xint > x)
+                                cnt++;
+                }
+        }
+
+        return cnt % 2 == 1;
+}
+
+static int selected(struct gllc_block_entity *ent, double x0, double y0, double x1, double y1)
+{
+        struct gllc_polyline *c = (struct gllc_polyline *)ent;
+
+        double bbox_x0, bbox_y0, bbox_x1, bbox_y1;
+        int ok = bbox(ent, &bbox_x0, &bbox_y0, &bbox_x1, &bbox_y1);
+
+        return ok && bbox_x0 >= x0 && bbox_y0 >= y0 && bbox_x1 <= x1 && bbox_y1 <= y1;
+}
+
 const static struct gllc_block_entity_vtable g_vtable = {
     .build = build,
-    .destroy = destruct};
+    .destroy = destruct,
+    .bbox = bbox,
+    .picked = picked,
+    .selected = selected};
 
 struct gllc_polyline *gllc_polyline_create(struct gllc_block *block, int closed, int filled)
 {
