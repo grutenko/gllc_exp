@@ -19,6 +19,7 @@ enum
 #define GLLC_ENT_HIDDEN 0x10
 #define GLLC_ENT_INITIAL 0x20
 #define GLLC_ENT_SELECTED 0x40
+#define GLLC_ENT_GEOMETRY_MODIFIED 0x80
 
 struct gllc_block;
 
@@ -29,6 +30,7 @@ typedef void (*gllc_block_ent_destroy_cb)(struct gllc_block_entity *);
 typedef int (*gllc_block_ent_bbox_cb)(struct gllc_block_entity *, double *, double *, double *, double *);
 typedef int (*gllc_block_ent_picked_cb)(struct gllc_block_entity *, double, double);
 typedef int (*gllc_block_ent_selected_cb)(struct gllc_block_entity *, double, double, double, double);
+typedef int (*gllc_block_ent_vertices)(struct gllc_block_entity *, double *);
 
 struct gllc_block_entity_vtable
 {
@@ -37,6 +39,7 @@ struct gllc_block_entity_vtable
         gllc_block_ent_bbox_cb bbox;
         gllc_block_ent_picked_cb picked;
         gllc_block_ent_selected_cb selected;
+        gllc_block_ent_vertices vertices;
         int type;
 };
 
@@ -49,6 +52,9 @@ struct gllc_block_entity_props
 struct gllc_block_entity
 {
         struct gllc_object __obj;
+        struct gllc_DE **DE_vertices;
+        int DE_vertices_cap;
+        int DE_verices_count;
         const struct gllc_block_entity_vtable *vtable;
         struct gllc_block_entity_props props;
         struct gllc_block *block;
@@ -68,6 +74,7 @@ struct gllc_block_entity
                 ((struct gllc_block_entity *)(ent_))->props.color = -1;          \
                 ((struct gllc_block_entity *)(ent_))->props.fcolor = -1;         \
                 GLLC_ENT_SET_FLAG(ent_, GLLC_ENT_MODIFIED);                      \
+                GLLC_ENT_SET_FLAG(ent_, GLLC_ENT_GEOMETRY_MODIFIED);             \
                 GLLC_ENT_SET_FLAG(ent_, GLLC_ENT_INITIAL);                       \
         } while (0)
 
@@ -92,5 +99,11 @@ void gllc_ent_set_layer(struct gllc_block_entity *ent, struct gllc_layer *layer)
 struct gllc_block_entity *gllc_ent_get_next(struct gllc_block_entity *ent);
 
 extern const struct gllc_prop_def g_block_entity_prop_def[];
+
+void gllc_ent_build(struct gllc_block_entity *ent);
+
+int gllc_ent_picked(struct gllc_block_entity *ent, double x, double y);
+
+int gllc_ent_bbox(struct gllc_block_entity *ent, double *x0, double *y0, double *x1, double *y1);
 
 #endif

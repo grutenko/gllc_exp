@@ -10,8 +10,9 @@
 
 #include "gllc_fragment_shader.h"
 #include "gllc_vertex_shader.h"
+#include "gllc_window_grid.h"
 #include "gllc_window_selection.h"
-#include "include/gllc_window_grid.h"
+#include "include/gllc_block_entity.h"
 
 #include <cglm/call.h>
 #include <cglm/cglm.h>
@@ -100,21 +101,21 @@ static GLuint load_GL_program()
 
 static inline void render_camera(struct gllc_window *w)
 {
-        float half_w = (float)w->width / 2.0f * w->scale_factor;
-        float half_h = (float)w->height / 2.0f * w->scale_factor;
+        float half_w = (float)w->viewport.width / 2.0f * w->viewport.scale_factor;
+        float half_h = (float)w->viewport.height / 2.0f * w->viewport.scale_factor;
 
-        glm_ortho(-half_w, half_w, -half_h, half_h, -1000.0f, 1000.0f, w->GL_m_proj);
+        glm_ortho(-half_w, half_w, -half_h, half_h, -1000.0f, 1000.0f, w->GL.GL_m_proj);
 
-        glm_ortho(0.0f, (float)w->width, (float)w->height, 0.0f, -1.0f, 1.0f, w->GL_m_proj_screen);
+        glm_ortho(0.0f, (float)w->viewport.width, (float)w->viewport.height, 0.0f, -1.0f, 1.0f, w->GL.GL_m_proj_screen);
 
-        glm_mat4_identity(w->GL_m_view);
-        vec4 t = {w->dx, w->dy, 0.0f, 1.0f};
-        glm_translate(w->GL_m_view, t);
+        glm_mat4_identity(w->GL.GL_m_view);
+        vec4 t = {w->viewport.dx, w->viewport.dy, 0.0f, 1.0f};
+        glm_translate(w->GL.GL_m_view, t);
 
-        glm_mat4_mul(w->GL_m_proj, w->GL_m_view, w->GL_m_MVP);
-        glm_mat4_mul(w->GL_m_MVP, w->GL_m_model, w->GL_m_MVP);
+        glm_mat4_mul(w->GL.GL_m_proj, w->GL.GL_m_view, w->GL.GL_m_MVP);
+        glm_mat4_mul(w->GL.GL_m_MVP, w->GL.GL_m_model, w->GL.GL_m_MVP);
 
-        glm_mat4_copy(w->GL_m_proj_screen, w->GL_m_MVP_screen);
+        glm_mat4_copy(w->GL.GL_m_proj_screen, w->GL.GL_m_MVP_screen);
 }
 
 static void update_viewport(struct gllc_window *w)
@@ -123,8 +124,8 @@ static void update_viewport(struct gllc_window *w)
 
         struct gllc_W_grid_viewport v;
         gllc_window_wnd_to_drw(w, 0.0f, 0.0f, &v.x0, &v.y0);
-        gllc_window_wnd_to_drw(w, (double)w->width, (double)w->height, &v.x1, &v.y1);
-        v.scale = w->scale_factor;
+        gllc_window_wnd_to_drw(w, (double)w->viewport.width, (double)w->viewport.height, &v.x1, &v.y1);
+        v.scale = w->viewport.scale_factor;
 
         struct gllc_W_grid_config conf = {
             .clear_color = NULL,
@@ -133,24 +134,24 @@ static void update_viewport(struct gllc_window *w)
             .offset = NULL,
             .viewport = &v};
 
-        gllc_W_grid_configure(&w->grid, &conf);
+        gllc_W_grid_configure(&w->UI.grid, &conf);
 }
 
 static void load_GL_uniform_loc(struct gllc_window *w)
 {
 #define LOADLOC(out, var)                                        \
-        out = glGetUniformLocation(w->GL_program, var);          \
+        out = glGetUniformLocation(w->GL.GL_program, var);       \
         if (out == -1)                                           \
         {                                                        \
                 fprintf(stderr, "Uniform %s not found!\n", var); \
         }
 
-        LOADLOC(w->GL_u_MVP_loc, "uMVP");
-        LOADLOC(w->GL_u_color_loc, "uColor");
-        LOADLOC(w->GL_u_viewport_loc, "uViewport");
-        LOADLOC(w->GL_u_scale_loc, "uScale");
-        LOADLOC(w->GL_u_flags_loc, "uFlags");
-        LOADLOC(w->GL_u_center_point_loc, "uCenterPoint");
+        LOADLOC(w->GL.GL_u_MVP_loc, "uMVP");
+        LOADLOC(w->GL.GL_u_color_loc, "uColor");
+        LOADLOC(w->GL.GL_u_viewport_loc, "uViewport");
+        LOADLOC(w->GL.GL_u_scale_loc, "uScale");
+        LOADLOC(w->GL.GL_u_flags_loc, "uFlags");
+        LOADLOC(w->GL.GL_u_center_point_loc, "uCenterPoint");
 }
 
 struct drag_state
@@ -183,17 +184,28 @@ static void on_mouse_click(struct gllc_WN *wn, int x, int y, int mode, int actio
         {
                 if (action == 1)
                 {
-                        w->in_selection = 1;
-                        w->sel_x0 = (double)(x - (int)(w->width / 2)) * w->scale_factor - w->dx;
-                        w->sel_y0 = (double)((w->height - y) - (int)(w->height / 2)) * w->scale_factor - w->dy;
-                        w->sel_x1 = w->sel_x0 + 1.0f * w->scale_factor;
-                        w->sel_y1 = w->sel_y0 + 1.0f * w->scale_factor;
-
-                        struct gllc_block_entity *ent = gllc_block_pick_ent(w->block, w->sel_x0, w->sel_y0);
+                        w->UI.sel_x0 = (double)(x - (int)(w->viewport.width / 2)) * w->viewport.scale_factor - w->viewport.dx;
+                        w->UI.sel_y0 = (double)((w->viewport.height - y) - (int)(w->viewport.height / 2)) * w->viewport.scale_factor - w->viewport.dy;
+                        w->UI.sel_x1 = w->UI.sel_x0 + 1.0f * w->viewport.scale_factor;
+                        w->UI.sel_y1 = w->UI.sel_y0 + 1.0f * w->viewport.scale_factor;
+                        w->UI.lpress_cursor_x = x;
+                        w->UI.lpress_cursor_y = y;
+                        w->flags |= GLLC_WINDOW_LPRESSED;
                 }
                 else if (action == 0)
                 {
-                        w->in_selection = 0;
+                        if (!(w->flags & GLLC_WINDOW_SELECTION))
+                        {
+                                gllc_block_select_ent_by_point(w->block, w->UI.sel_x0, w->UI.sel_y0, 1);
+                        }
+                        else
+                        {
+                                gllc_block_ent_select_by_bbox(w->block, w->UI.sel_x0, w->UI.sel_y0, w->UI.sel_x1, w->UI.sel_y1);
+                        }
+
+                        gllc_block_update(w->block);
+                        w->flags &= ~GLLC_WINDOW_SELECTION;
+                        w->flags &= ~GLLC_WINDOW_LPRESSED;
                 }
         }
 
@@ -243,20 +255,31 @@ static void on_mouse_move(struct gllc_WN *wn, int x, int y, void *USER_1)
                 int dy = y - g_drag.last_y;
                 g_drag.last_x = x;
                 g_drag.last_y = y;
-                w->dx += dx * w->scale_factor;
-                w->dy -= dy * w->scale_factor;
+                w->viewport.dx += dx * w->viewport.scale_factor;
+                w->viewport.dy -= dy * w->viewport.scale_factor;
 
                 update_viewport(w);
         }
 
-        if (w->in_selection)
+        if (w->flags & GLLC_WINDOW_LPRESSED)
         {
-                w->sel_x1 = (x - (int)(w->width / 2)) * w->scale_factor - w->dx;
-                w->sel_y1 = ((w->height - y) - (int)(w->height / 2)) * w->scale_factor - w->dy;
+                int dx = abs(w->UI.lpress_cursor_x - x);
+                int dy = abs(w->UI.lpress_cursor_y - y);
+
+                if (sqrt(dx * dx + dy * dy) > 5.0f)
+                {
+                        w->flags |= GLLC_WINDOW_SELECTION;
+                }
         }
 
-        w->cursor_x = x;
-        w->cursor_y = y;
+        if (w->flags & GLLC_WINDOW_SELECTION)
+        {
+                w->UI.sel_x1 = (x - (int)(w->viewport.width / 2)) * w->viewport.scale_factor - w->viewport.dx;
+                w->UI.sel_y1 = ((w->viewport.height - y) - (int)(w->viewport.height / 2)) * w->viewport.scale_factor - w->viewport.dy;
+        }
+
+        w->UI.cursor_x = x;
+        w->UI.cursor_y = y;
 
         gllc_WN_dirty(w->native);
 }
@@ -270,17 +293,17 @@ static void on_mouse_scroll(struct gllc_WN *wn, int dx, int dy, void *USER_1)
         if (dy <= -10)
                 dy = -2;
 
-        if ((w->scale_factor > 300.0f && dy > 0) || (w->scale_factor < 0.005f && dy < 0))
+        if ((w->viewport.scale_factor > 300.0f && dy > 0) || (w->viewport.scale_factor < 0.005f && dy < 0))
                 return;
 
-        double old_scale = w->scale_factor;
-        w->scale_factor *= 1.0f + ((double)dy * 0.1);
+        double old_scale = w->viewport.scale_factor;
+        w->viewport.scale_factor *= 1.0f + ((double)dy * 0.1);
 
         int mouse_x, mouse_y;
         gllc_WN_get_cursor(wn, &mouse_x, &mouse_y);
 
-        w->dx += (mouse_x - (int)(w->width / 2)) * (w->scale_factor - old_scale);
-        w->dy += ((w->height - mouse_y) - (int)(w->height / 2)) * (w->scale_factor - old_scale);
+        w->viewport.dx += (mouse_x - (int)(w->viewport.width / 2)) * (w->viewport.scale_factor - old_scale);
+        w->viewport.dy += ((w->viewport.height - mouse_y) - (int)(w->viewport.height / 2)) * (w->viewport.scale_factor - old_scale);
 
         update_viewport(w);
 
@@ -353,49 +376,50 @@ static void draw(struct gllc_window *w)
 
         if (w->block)
         {
-                gllc_DBG_build(&w->DBG, &w->block->DBD);
+                gllc_DBG_build(&w->DBG.DBG, &w->block->DBD);
+                gllc_DBG_build(&w->DBG.DBG_interactive, &w->block->I_DBD);
         }
 
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glUseProgram(w->GL_program);
-        glUniform1ui(w->GL_u_flags_loc, 0);
-        glUniformMatrix4fv(w->GL_u_MVP_loc, 1, GL_FALSE, (const float *)w->GL_m_MVP);
+        glUseProgram(w->GL.GL_program);
+        glUniform1ui(w->GL.GL_u_flags_loc, 0);
+        glUniformMatrix4fv(w->GL.GL_u_MVP_loc, 1, GL_FALSE, (const float *)w->GL.GL_m_MVP);
 
-        GLfloat viewport[2] = {(GLfloat)w->width, (GLfloat)w->height};
-        glUniform2fv(w->GL_u_viewport_loc, 1, (const float *)viewport);
-        glUniform1f(w->GL_u_scale_loc, w->scale_factor);
+        GLfloat viewport[2] = {(GLfloat)w->viewport.width, (GLfloat)w->viewport.height};
+        glUniform2fv(w->GL.GL_u_viewport_loc, 1, (const float *)viewport);
+        glUniform1f(w->GL.GL_u_scale_loc, w->viewport.scale_factor);
 
-        if (w->grid_used)
+        if (w->flags & GLLC_WINDOW_GRID)
         {
-                gllc_W_grid_draw(&w->grid, w->GL_u_color_loc);
+                gllc_W_grid_draw(&w->UI.grid, w->GL.GL_u_color_loc);
         }
 
-        glBindVertexArray(w->DBG.VAO);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG.EBO);
+        glBindVertexArray(w->DBG.DBG.VAO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG.DBG.EBO);
 
         double wx0, wy0, wx1, wy1;
         gllc_window_wnd_to_drw(w, 0.0f, 0.0f, &wx0, &wy0);
-        gllc_window_wnd_to_drw(w, (double)w->width, (double)w->height, &wx1, &wy1);
+        gllc_window_wnd_to_drw(w, (double)w->viewport.width, (double)w->viewport.height, &wx1, &wy1);
 
-        draw_DBG(w->GL_u_color_loc, w->GL_u_flags_loc, w->GL_u_center_point_loc, &w->DBG, wx0, wy0, wx1, wy1);
+        draw_DBG(w->GL.GL_u_color_loc, w->GL.GL_u_flags_loc, w->GL.GL_u_center_point_loc, &w->DBG.DBG, wx0, wy0, wx1, wy1);
 
-        /*glBindVertexArray(w->DBG_interactive.VAO);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_interactive.EBO);
-        draw_DBG(w->GL_u_color_loc, w->GL_u_flags_loc, w->GL_u_center_point_loc, &w->DBG_interactive, wx0, wy0, wx1, wy1);*/
+        glBindVertexArray(w->DBG.DBG_interactive.VAO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG.DBG_interactive.EBO);
+        draw_DBG(w->GL.GL_u_color_loc, w->GL.GL_u_flags_loc, w->GL.GL_u_center_point_loc, &w->DBG.DBG_interactive, wx0, wy0, wx1, wy1);
 
-        if (w->in_selection)
+        if (w->flags & GLLC_WINDOW_SELECTION)
         {
-                gllc_W_selection_draw(&w->selection, w->GL_u_color_loc, w->sel_x0, w->sel_y0, w->sel_x1, w->sel_y1);
+                gllc_W_selection_draw(&w->UI.selection, w->GL.GL_u_color_loc, w->UI.sel_x0, w->UI.sel_y0, w->UI.sel_x1, w->UI.sel_y1);
         }
 
-        glUniformMatrix4fv(w->GL_u_MVP_loc, 1, GL_FALSE, (const float *)w->GL_m_MVP_screen);
+        glUniformMatrix4fv(w->GL.GL_u_MVP_loc, 1, GL_FALSE, (const float *)w->GL.GL_m_MVP_screen);
 
-        /*glBindVertexArray(w->DBG_screen.VAO);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG_screen.EBO);
-        draw_DBG(w->GL_u_color_loc, w->GL_u_flags_loc, w->GL_u_center_point_loc, &w->DBG_screen, wx0, wy0, wx1, wy1);*/
+        glBindVertexArray(w->DBG.DBG_screen.VAO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, w->DBG.DBG_screen.EBO);
+        draw_DBG(w->GL.GL_u_color_loc, w->GL.GL_u_flags_loc, w->GL.GL_u_center_point_loc, &w->DBG.DBG_screen, wx0, wy0, wx1, wy1);
 
-        gllc_W_cursor_draw(&w->cursor, w->GL_u_color_loc, w->cursor_x, w->cursor_y, w->width, w->height);
+        gllc_W_cursor_draw(&w->UI.cursor, w->GL.GL_u_color_loc, w->UI.cursor_x, w->UI.cursor_y, w->viewport.width, w->viewport.height);
 
         gllc_WN_swap_buffers(w->native);
 }
@@ -411,8 +435,8 @@ static void on_size(struct gllc_WN *wn, int width, int height, void *USER_1)
 
         glViewport(0, 0, width, height);
 
-        ((struct gllc_window *)USER_1)->width = width;
-        ((struct gllc_window *)USER_1)->height = height;
+        ((struct gllc_window *)USER_1)->viewport.width = width;
+        ((struct gllc_window *)USER_1)->viewport.height = height;
 
         update_viewport((struct gllc_window *)USER_1);
 }
@@ -451,12 +475,12 @@ struct gllc_window *gllc_window_create(void *parent)
 
         gllc_WN_make_context_current(w->native);
 
-        gllc_W_grid_init(&w->grid);
-        w->grid.color[0] = 0.5f;
-        w->grid.color[1] = 0.5f;
-        w->grid.color[2] = 0.5f;
-        w->grid.color[3] = 0.3f;
-        w->grid_used = 1;
+        gllc_W_grid_init(&w->UI.grid);
+        w->UI.grid.color[0] = 0.5f;
+        w->UI.grid.color[1] = 0.5f;
+        w->UI.grid.color[2] = 0.5f;
+        w->UI.grid.color[3] = 0.3f;
+        w->flags |= GLLC_WINDOW_GRID;
 
         if (!gladLoadGL())
         {
@@ -472,17 +496,17 @@ struct gllc_window *gllc_window_create(void *parent)
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glDisable(GL_CULL_FACE);
 
-        w->GL_program = load_GL_program();
+        w->GL.GL_program = load_GL_program();
 
-        if (!w->GL_program)
+        if (!w->GL.GL_program)
         {
                 goto _error;
         }
 
-        glm_mat4_identity(w->GL_m_model);
-        glm_mat4_identity(w->GL_m_view);
-        glm_mat4_identity(w->GL_m_proj);
-        glm_mat4_identity(w->GL_m_proj_screen);
+        glm_mat4_identity(w->GL.GL_m_model);
+        glm_mat4_identity(w->GL.GL_m_view);
+        glm_mat4_identity(w->GL.GL_m_proj);
+        glm_mat4_identity(w->GL.GL_m_proj_screen);
 
         w->clear_color[0] = 0.0f;
         w->clear_color[1] = 0.0f;
@@ -491,9 +515,9 @@ struct gllc_window *gllc_window_create(void *parent)
 
         int width, height;
         gllc_WN_get_size(w->native, &width, &height);
-        w->width = width;
-        w->height = height;
-        w->scale_factor = 1.0f;
+        w->viewport.width = width;
+        w->viewport.height = height;
+        w->viewport.scale_factor = 1.0f;
 
         printf("Window size: %d, %d.\n", width, height);
 
@@ -501,9 +525,9 @@ struct gllc_window *gllc_window_create(void *parent)
 
         load_GL_uniform_loc(w);
 
-        gllc_DBG_init(&w->DBG);
-        gllc_DBG_init(&w->DBG_interactive);
-        gllc_DBG_init(&w->DBG_screen);
+        gllc_DBG_init(&w->DBG.DBG);
+        gllc_DBG_init(&w->DBG.DBG_interactive);
+        gllc_DBG_init(&w->DBG.DBG_screen);
 
         gllc_WN_make_context_current(0);
 
@@ -539,7 +563,7 @@ void gllc_window_set_clear_color(struct gllc_window *window, int r, int g, int b
         struct gllc_W_grid_config conf = {
             .clear_color = window->clear_color};
 
-        gllc_W_grid_configure(&window->grid, &conf);
+        gllc_W_grid_configure(&window->UI.grid, &conf);
 }
 
 void gllc_window_set_size(struct gllc_window *window, int x, int y, int width, int height)
@@ -557,10 +581,10 @@ void gllc_window_set_block(struct gllc_window *window,
 void gllc_window_destroy(struct gllc_window *window)
 {
         gllc_WN_make_context_current(window->native);
-        gllc_DBG_destroy(&window->DBG);
-        gllc_DBG_destroy(&window->DBG_interactive);
-        gllc_DBG_destroy(&window->DBG_screen);
-        gllc_W_grid_cleanup(&window->grid);
+        gllc_DBG_destroy(&window->DBG.DBG);
+        gllc_DBG_destroy(&window->DBG.DBG_interactive);
+        gllc_DBG_destroy(&window->DBG.DBG_screen);
+        gllc_W_grid_cleanup(&window->UI.grid);
         gllc_WN_destroy(window->native);
 
         free(window);
@@ -568,23 +592,26 @@ void gllc_window_destroy(struct gllc_window *window)
 
 void gllc_window_enable_grid(struct gllc_window *window, int enable)
 {
-        window->grid_used = enable;
+        if (enable)
+                window->flags |= GLLC_WINDOW_GRID;
+        else
+                window->flags &= ~GLLC_WINDOW_GRID;
 }
 
 void gllc_window_grid_configure(struct gllc_window *window, double gap_x, double gap_y, double offset_x, double offset_y, float *color)
 {
-        window->grid.offset_x = offset_x;
-        window->grid.offset_y = offset_y;
-        window->grid.gap_x = gap_x;
-        window->grid.gap_y = gap_y;
+        window->UI.grid.offset_x = offset_x;
+        window->UI.grid.offset_y = offset_y;
+        window->UI.grid.gap_x = gap_x;
+        window->UI.grid.gap_y = gap_y;
 
-        memcpy(window->grid.color, color, sizeof(float) * 4);
+        memcpy(window->UI.grid.color, color, sizeof(float) * 4);
 }
 
 void gllc_window_wnd_to_drw(struct gllc_window *w, double x, double y, double *xd, double *yd)
 {
-        *xd = (x - ((double)w->width / 2)) * w->scale_factor - w->dx;
-        *yd = (y - ((double)w->height / 2)) * w->scale_factor - w->dy;
+        *xd = (x - ((double)w->viewport.width / 2)) * w->viewport.scale_factor - w->viewport.dx;
+        *yd = (y - ((double)w->viewport.height / 2)) * w->viewport.scale_factor - w->viewport.dy;
 }
 
 void gllc_window_zoom_bb(struct gllc_window *window)
@@ -625,15 +652,15 @@ void gllc_window_zoom_bb(struct gllc_window *window)
 
         if (fabs(x_max - x_min) > fabs(y_max - y_min))
         {
-                window->scale_factor = fabs(x_max - x_min) / (double)window->width;
+                window->viewport.scale_factor = fabs(x_max - x_min) / (double)window->viewport.width;
         }
         else
         {
-                window->scale_factor = fabs(y_max - y_min) / (double)window->height;
+                window->viewport.scale_factor = fabs(y_max - y_min) / (double)window->viewport.height;
         }
 
-        window->dx = -(x_min + ((x_max - x_min) / 2.0f));
-        window->dy = -(y_min + ((y_max - y_min) / 2.0f));
+        window->viewport.dx = -(x_min + ((x_max - x_min) / 2.0f));
+        window->viewport.dy = -(y_min + ((y_max - y_min) / 2.0f));
 
         update_viewport(window);
 

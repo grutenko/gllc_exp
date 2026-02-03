@@ -37,6 +37,7 @@ struct gllc_DE
         GLfloat BBox_y1;
         struct gllc_DE *next;
         struct gllc_DE *prev;
+        int modified;
 };
 
 struct gllc_DBD
@@ -82,6 +83,8 @@ struct gllc_DBG
         size_t I_size;
 };
 
+void gllc_DE_dump(const struct gllc_DE *de);
+
 struct gllc_DE *gllc_DE_create(struct gllc_DBD *DBD, GLenum GL_type);
 
 void gllc_DBD_init(struct gllc_DBD *DBD);
@@ -99,5 +102,7 @@ void gllc_DBD_destroy(struct gllc_DBD *DBD);
 void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD);
 
 void gllc_DE_destroy(struct gllc_DE *DE);
+
+void gllc_DE_empty(struct gllc_DE *DE);
 
 #endif

@@ -24,7 +24,15 @@ struct gllc_block
         struct gllc_block_entity *ent_head;
         struct gllc_block_entity *ent_tail;
         size_t ent_count;
-        struct gllc_SG_cell *sparse_grid;
+        struct gllc_SG_cell *ent_grid;
+        // Структуры для управления интерактивными элементами.
+        // По факту работаем с ними также как и с обычными, но они полностью отделены друг от друга
+        // пока используетсят только для точек вешин выделеных элементов
+        struct gllc_DBD I_DBD;
+        struct gllc_block_entity *I_ent_head;
+        struct gllc_block_entity *I_ent_tail;
+        size_t I_ent_count;
+        struct gllc_SG_cell *I_ent_grid;
         struct gllc_layer *layer_head;
         struct gllc_layer *layer_tail;
         size_t layer_count;
@@ -52,6 +60,14 @@ struct gllc_point *gllc_block_add_point(struct gllc_block *block, double x, doub
 
 struct gllc_block_entity *gllc_block_pick_ent(struct gllc_block *block, double x, double y);
 
-void gllc_block_ent_select(struct gllc_block *block, struct gllc_block_entity *ent);
+void gllc_block_ent_select(struct gllc_block *block, struct gllc_block_entity *ent, int exlusive);
+
+struct gllc_block_entity *gllc_block_select_ent_by_point(struct gllc_block *block, double x, double y, int exlusive);
+
+void gllc_block_ent_deselect_all(struct gllc_block *block);
+
+void gllc_block_ent_deselect(struct gllc_block *block, struct gllc_block_entity *ent);
+
+void gllc_block_ent_select_by_bbox(struct gllc_block *block, double bbox_x0, double bbox_y0, double bbox_x1, double bbox_y1);
 
 #endif

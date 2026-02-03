@@ -59,15 +59,34 @@ void gllc_rect_build(double x, double y, double width, double height, double ang
         }
 }
 
+static void build_without_geometry(struct gllc_DE *DE_bound, struct gllc_DE *DE_fill, float *color, float *fcolor, int filled)
+{
+        struct gllc_DE_config DE_config = {0};
+        DE_config.color = color;
+
+        gllc_DE_update(DE_bound, &DE_config);
+
+        if (filled)
+        {
+                struct gllc_DE_config DE_config = {0};
+                DE_config.color = fcolor;
+
+                gllc_DE_update(DE_fill, &DE_config);
+        }
+}
+
 static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 {
         struct gllc_rect *rect = (struct gllc_rect *)ent;
 
         if (GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED))
         {
-                rect->DE_fill = gllc_DE_create(DBD, GL_TRIANGLES);
                 if (!rect->DE_fill)
-                        return;
+                {
+                        rect->DE_fill = gllc_DE_create(DBD, GL_TRIANGLES);
+                        if (!rect->DE_fill)
+                                return;
+                }
         }
         else
         {
@@ -87,19 +106,36 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
         gllc_ent_color_4f(gllc_ent_color(ent), color_);
         gllc_ent_color_4f(gllc_ent_fcolor(ent), fcolor_);
 
-        gllc_rect_build(
-            rect->x,
-            rect->y,
-            rect->width,
-            rect->height,
-            rect->angle,
-            color_,
-            fcolor_,
-            rect->DE_bound,
-            rect->DE_fill,
-            GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED));
+        if (GLLC_ENT_FLAG(ent, GLLC_ENT_SELECTED))
+        {
+                color_[0] = 0.0f;
+                color_[1] = 0.0f;
+                color_[2] = 0.0f;
+                color_[3] = 1.0f;
+                fcolor_[0] = 1.0f;
+                fcolor_[1] = 1.0f;
+                fcolor_[2] = 1.0f;
+                fcolor_[3] = 1.0f;
+        }
 
-        GLLC_ENT_UNSET_FLAG(ent, GLLC_ENT_MODIFIED);
+        if (GLLC_ENT_FLAG(ent, GLLC_ENT_GEOMETRY_MODIFIED))
+        {
+                gllc_rect_build(
+                    rect->x,
+                    rect->y,
+                    rect->width,
+                    rect->height,
+                    rect->angle,
+                    color_,
+                    fcolor_,
+                    rect->DE_bound,
+                    rect->DE_fill,
+                    GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED));
+        }
+        else
+        {
+                build_without_geometry(rect->DE_bound, rect->DE_fill, color_, fcolor_, GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED));
+        }
 }
 
 static void destruct(struct gllc_block_entity *ent)
@@ -113,20 +149,57 @@ static void destruct(struct gllc_block_entity *ent)
 
 static int bbox(struct gllc_block_entity *ent, double *bbox_x0, double *bbox_y0, double *bbox_x1, double *bbox_y1)
 {
+        struct gllc_rect *rect = (struct gllc_rect *)ent;
+
+        *bbox_x0 = rect->x;
+        *bbox_y0 = rect->y;
+        *bbox_x1 = rect->x + rect->width;
+        *bbox_y1 = rect->y + rect->height;
+
         return 1;
 }
 
-static int picked(struct gllc_block_entity *ent, double x0, double y0, double x1, double y1)
+static int picked(struct gllc_block_entity *ent, double x, double y)
+{
+        struct gllc_rect *r = (struct gllc_rect *)ent;
+
+        return r->x <= x && r->y <= y && (r->x + r->width) >= x && (r->y + r->height) >= y;
+}
+
+static int selected(struct gllc_block_entity *ent, double x0, double y0, double x1, double y1)
 {
         struct gllc_rect *c = (struct gllc_rect *)ent;
 
         return 1;
 }
 
+static int vertices(struct gllc_block_entity *ent, double *ver)
+{
+        struct gllc_rect *r = (struct gllc_rect *)ent;
+
+        int ver_count = 4;
+        if (ver)
+        {
+                ver[0] = r->x;
+                ver[1] = r->y;
+                ver[2] = r->x + r->width;
+                ver[3] = r->y;
+                ver[4] = r->x + r->width;
+                ver[5] = r->y + r->height;
+                ver[6] = r->x;
+                ver[7] = r->y + r->height;
+        }
+        return ver_count;
+}
+
 const static struct gllc_block_entity_vtable g_vtable = {
     .build = build,
     .destroy = destruct,
-    .bbox = bbox};
+    .bbox = bbox,
+    .picked = picked,
+    .selected = selected,
+    .vertices = vertices,
+    .type = GLLC_ENT_RECT};
 
 struct gllc_rect *gllc_rect_create(struct gllc_block *block, double x, double y, double width, double height, double angle, int filled)
 {

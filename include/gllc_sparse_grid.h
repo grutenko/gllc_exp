@@ -29,4 +29,6 @@ void gllc_SG_cleanup(struct gllc_SG_cell **grid);
 
 struct gllc_SG_cell *gllc_SG_pick_cell(struct gllc_SG_cell **grid, double x, double y);
 
+struct gllc_SG_cell *gllc_SG_cell_at(struct gllc_SG_cell **grid, int x, int y);
+
 #endif

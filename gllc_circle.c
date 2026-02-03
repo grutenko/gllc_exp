@@ -78,9 +78,12 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 
         if (GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED))
         {
-                circle->DE_fill = gllc_DE_create(DBD, GL_TRIANGLE_FAN);
                 if (!circle->DE_fill)
-                        return;
+                {
+                        circle->DE_fill = gllc_DE_create(DBD, GL_TRIANGLE_FAN);
+                        if (!circle->DE_fill)
+                                return;
+                }
         }
         else
         {
@@ -99,6 +102,18 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
         gllc_ent_color_4f(gllc_ent_color(ent), color_);
         gllc_ent_color_4f(gllc_ent_fcolor(ent), fcolor_);
 
+        if (GLLC_ENT_FLAG(ent, GLLC_ENT_SELECTED))
+        {
+                color_[0] = 0.0f;
+                color_[1] = 0.0f;
+                color_[2] = 0.0f;
+                color_[3] = 1.0f;
+                fcolor_[0] = 1.0f;
+                fcolor_[1] = 1.0f;
+                fcolor_[2] = 1.0f;
+                fcolor_[3] = 1.0f;
+        }
+
         gllc_circle_build(
             circle->x,
             circle->y,
@@ -108,8 +123,6 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
             circle->DE_bound,
             circle->DE_fill,
             GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED));
-
-        GLLC_ENT_UNSET_FLAG(ent, GLLC_ENT_MODIFIED);
 }
 
 static void destruct(struct gllc_block_entity *ent)
@@ -149,12 +162,18 @@ static int selected(struct gllc_block_entity *ent, double x0, double y0, double 
         return 0;
 }
 
+static int vertices(struct gllc_block_entity *ent, double *ver)
+{
+        return 0;
+}
+
 const static struct gllc_block_entity_vtable g_vtable = {
     .build = build,
     .destroy = destruct,
     .bbox = bbox,
     .picked = picked,
     .selected = selected,
+    .vertices = vertices,
     .type = GLLC_ENT_CIRCLE};
 
 struct gllc_circle *gllc_circle_create(struct gllc_block *block, double x, double y, double radius, int filled)

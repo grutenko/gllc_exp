@@ -27,10 +27,10 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
         gllc_ent_color_4f(gllc_ent_color(ent), color_);
 
         GLfloat V[] = {
-            (GLfloat)point->x - 5.0f, (GLfloat)point->y,
-            (GLfloat)point->x + 5.0f, (GLfloat)point->y,
-            (GLfloat)point->x, (GLfloat)point->y - 5.0f,
-            (GLfloat)point->x, (GLfloat)point->y + 5.0f};
+            (GLfloat)point->x - 3.0f, (GLfloat)point->y,
+            (GLfloat)point->x + 3.0f, (GLfloat)point->y,
+            (GLfloat)point->x, (GLfloat)point->y - 3.0f,
+            (GLfloat)point->x, (GLfloat)point->y + 3.0f};
         GLuint I[] = {0, 1, 2, 3};
 
         GLuint flags = GLLC_POINT_SCALE_INVARIANT;
@@ -48,8 +48,6 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
                 .center_point = center};
 
         gllc_DE_update(point->DE, &DE_conf);
-
-        GLLC_ENT_UNSET_FLAG(ent, GLLC_ENT_MODIFIED);
 }
 
 static void destruct(struct gllc_block_entity *ent)
@@ -73,7 +71,7 @@ static int bbox(struct gllc_block_entity *ent, double *bbox_x0, double *bbox_y0,
 
 static int picked(struct gllc_block_entity *ent, double x, double y)
 {
-        return 1;
+        return 0;
 }
 
 static int selected(struct gllc_block_entity *ent, double x0, double y0, double x1, double y1)
@@ -83,12 +81,18 @@ static int selected(struct gllc_block_entity *ent, double x0, double y0, double 
         return x0 <= p->x && y0 <= p->y && x1 >= p->x && y1 >= p->y;
 }
 
+static int vertices(struct gllc_block_entity *ent, double *ver)
+{
+        return 0;
+}
+
 const static struct gllc_block_entity_vtable g_vtable = {
     .build = build,
     .destroy = destruct,
     .bbox = bbox,
     .picked = picked,
     .selected = selected,
+    .vertices = vertices,
     .type = GLLC_ENT_POINT};
 
 struct gllc_point *gllc_point_create(struct gllc_block *block, double x, double y)

@@ -127,13 +127,64 @@ int gllc_DE_update(struct gllc_DE *DE, struct gllc_DE_config *DE_config)
 
         if (DE_config->center_point)
         {
-                memcpy(DE->center_point, DE_config->center_point, sizeof(GLfloat) * 2);
+                DE->center_point[0] = DE_config->center_point[0];
+                DE->center_point[1] = DE_config->center_point[1];
         }
+
+        DE->DBD->modified = 1;
+        DE->modified = 1;
+
+        return 1;
+}
+
+void gllc_DE_empty(struct gllc_DE *DE)
+{
+        DE->I_cache_count = 0;
+        DE->V_cache_count = 0;
 
         if (DE->DBD)
                 DE->DBD->modified = 1;
+}
 
-        return 1;
+void gllc_DE_dump(const struct gllc_DE *de)
+{
+        if (!de)
+        {
+                printf("gllc_DE: NULL\n");
+                return;
+        }
+
+        printf("gllc_DE %p\n", (void *)de);
+        printf("  DBD: %p\n", (void *)de->DBD);
+        printf("  GL_type: 0x%X\n", de->GL_type);
+        printf("  layer: %d\n", de->layer);
+        printf("  skip: %d\n", de->skip);
+        printf("  flags: 0x%X\n", de->flags);
+
+        printf("  V_cache: %p (count=%u)\n",
+               (void *)de->V_cache, de->V_cache_count);
+
+        printf("  I_cache: %p (count=%u)\n",
+               (void *)de->I_cache, de->I_cache_count);
+
+        printf("  center_point: (%f, %f)\n",
+               de->center_point[0],
+               de->center_point[1]);
+
+        printf("  color: (%f, %f, %f, %f)\n",
+               de->color[0],
+               de->color[1],
+               de->color[2],
+               de->color[3]);
+
+        printf("  BBox: [%f, %f] - [%f, %f]\n",
+               de->BBox_x0,
+               de->BBox_y0,
+               de->BBox_x1,
+               de->BBox_y1);
+
+        printf("  next: %p\n", (void *)de->next);
+        printf("  prev: %p\n", (void *)de->prev);
 }
 
 void gllc_DBD_init(struct gllc_DBD *DBD)
@@ -313,6 +364,7 @@ void gllc_DBG_build(struct gllc_DBG *DBG, struct gllc_DBD *DBD)
                 V_nth += DE->V_cache_count;
                 I_nth += DE->I_cache_count;
                 i++;
+                DE->modified = 0;
                 DE = DE->next;
         }
 

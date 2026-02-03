@@ -13,16 +13,12 @@
 struct gllc_WN;
 struct gllc_block;
 
-struct gllc_window
+#define GLLC_WINDOW_GRID 0x1
+#define GLLC_WINDOW_SELECTION 0x2
+#define GLLC_WINDOW_LPRESSED 0x4
+
+struct gllc_window_GL
 {
-        struct gllc_object __obj;
-        struct gllc_WN *native;
-        struct gllc_W_grid grid;
-        struct gllc_W_cursor cursor;
-        struct gllc_W_selection selection;
-        struct gllc_block *block;
-        int grid_used;
-        GLfloat clear_color[4];
         GLuint GL_program;
         GLuint GL_u_MVP_loc;
         GLuint GL_u_color_loc;
@@ -30,27 +26,58 @@ struct gllc_window
         GLuint GL_u_scale_loc;
         GLuint GL_u_flags_loc;
         GLuint GL_u_center_point_loc;
-        struct gllc_DBG DBG;
-        struct gllc_DBG DBG_interactive;
         mat4 GL_m_proj;
         mat4 GL_m_view;
         mat4 GL_m_model;
         mat4 GL_m_MVP;
-        struct gllc_DBG DBG_screen;
         mat4 GL_m_proj_screen;
         mat4 GL_m_MVP_screen;
+};
+
+struct gllc_window_DBG
+{
+        struct gllc_DBG DBG;
+        struct gllc_DBG DBG_interactive;
+        struct gllc_DBG DBG_screen;
+};
+
+struct gllc_window_viewport
+{
         double scale_factor;
         double dx;
         double dy;
         int width;
         int height;
+};
+
+struct gllc_window_UI
+{
+        struct gllc_W_grid grid;
+        struct gllc_W_cursor cursor;
+        struct gllc_W_selection selection;
+        int lpress_cursor_x;
+        int lpress_cursor_y;
         int cursor_x;
         int cursor_y;
-        int in_selection;
         double sel_x0;
         double sel_y0;
         double sel_x1;
         double sel_y1;
+};
+
+struct gllc_window
+{
+        struct gllc_object __obj;
+        struct gllc_WN *native;
+        struct gllc_block *block;
+        struct gllc_window_UI UI;
+        struct gllc_window_GL GL;
+        struct gllc_window_DBG DBG;
+        struct gllc_window_viewport viewport;
+
+        GLfloat clear_color[4];
+
+        int flags;
 };
 
 struct gllc_window *gllc_window_create(void *parent);

@@ -153,7 +153,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 #define TIMER_INTERVAL 64
 
         // после создания окна:
-        //SetTimer(hwnd, TIMER_ID, TIMER_INTERVAL, NULL);
+        // SetTimer(hwnd, TIMER_ID, TIMER_INTERVAL, NULL);
 
         w = gllc_window_create(hwnd);
         if (!w)
@@ -172,9 +172,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         struct gllc_drawing *hDrw = gllc_drawing_create();
         struct gllc_block *hBlock = gllc_drw_add_block(hDrw, "Model Space", 0.0f, 0.0f);
 
-        /*int grid_size = 20;
-        int width = 400;
-        int height = 400;
+        int grid_size = 2;
+        int width = 600;
+        int height = 600;
 
         for (int y = 0; y < height; y += grid_size)
         {
@@ -190,8 +190,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         int color = rand_color();
                         gllc_ent_set_color((struct gllc_block_entity *)hRect, color);
                         gllc_ent_set_fcolor((struct gllc_block_entity *)hRect, color);
+
+                        // struct gllc_point *hPoint = gllc_block_add_point(hBlock, x0 + (double)grid_size / 2, y0 +  + (double)grid_size / 2);
                 }
-        }*/
+        }
 
         FILE *plines = fopen("polylines.txt", "r");
         if (!plines)

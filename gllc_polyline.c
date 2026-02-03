@@ -61,6 +61,22 @@ static int reserve_I(size_t size)
         return reserve((void **)&G_indices, &G_icap, size);
 }
 
+static void build_without_geometry(struct gllc_DE *DE_bound, struct gllc_DE *DE_fill, float *color, float *fcolor, int closed, int filled)
+{
+        struct gllc_DE_config DE_config = {0};
+        DE_config.color = color;
+
+        gllc_DE_update(DE_bound, &DE_config);
+
+        if (closed && filled)
+        {
+                struct gllc_DE_config DE_config = {0};
+                DE_config.color = fcolor;
+
+                gllc_DE_update(DE_fill, &DE_config);
+        }
+}
+
 void gllc_polyline_build(const struct gllc_polyline_vertex *V, size_t V_count, struct gllc_DE *DE_bound, struct gllc_DE *DE_fill, float *color, float *fcolor, int closed, int filled)
 {
         size_t V_size = sizeof(GLfloat) * 2 * V_count;
@@ -121,9 +137,12 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
 
         if (GLLC_ENT_FLAG(ent, GLLC_ENT_CLOSED) && GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED))
         {
-                pline->DE_fill = gllc_DE_create(DBD, GL_TRIANGLES);
                 if (!pline->DE_fill)
-                        return;
+                {
+                        pline->DE_fill = gllc_DE_create(DBD, GL_TRIANGLES);
+                        if (!pline->DE_fill)
+                                return;
+                }
         }
         else
         {
@@ -160,17 +179,26 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
         gllc_ent_color_4f(gllc_ent_color(ent), color_);
         gllc_ent_color_4f(gllc_ent_fcolor(ent), fcolor_);
 
-        gllc_polyline_build(
-            pline->ver,
-            pline->ver_size,
-            pline->DE_bound,
-            pline->DE_fill,
-            color_,
-            fcolor_,
-            GLLC_ENT_FLAG(ent, GLLC_ENT_CLOSED),
-            GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED));
+        if (GLLC_ENT_FLAG(ent, GLLC_ENT_SELECTED))
+        {
+                color_[0] = 0.0f;
+                color_[1] = 0.0f;
+                color_[2] = 0.0f;
+                color_[3] = 1.0f;
+                fcolor_[0] = 1.0f;
+                fcolor_[1] = 1.0f;
+                fcolor_[2] = 1.0f;
+                fcolor_[3] = 1.0f;
+        }
 
-        GLLC_ENT_UNSET_FLAG(ent, GLLC_ENT_MODIFIED);
+        if (GLLC_ENT_FLAG(ent, GLLC_ENT_GEOMETRY_MODIFIED))
+        {
+                gllc_polyline_build(pline->ver, pline->ver_size, pline->DE_bound, pline->DE_fill, color_, fcolor_, GLLC_ENT_FLAG(ent, GLLC_ENT_CLOSED), GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED));
+        }
+        else
+        {
+                build_without_geometry(pline->DE_bound, pline->DE_fill, color_, fcolor_, GLLC_ENT_FLAG(ent, GLLC_ENT_CLOSED), GLLC_ENT_FLAG(ent, GLLC_ENT_FILLED));
+        }
 }
 
 static int bbox(struct gllc_block_entity *ent, double *bbox_x0, double *bbox_y0, double *bbox_x1, double *bbox_y1)
@@ -240,12 +268,31 @@ static int selected(struct gllc_block_entity *ent, double x0, double y0, double 
         return ok && bbox_x0 >= x0 && bbox_y0 >= y0 && bbox_x1 <= x1 && bbox_y1 <= y1;
 }
 
+static int vertices(struct gllc_block_entity *ent, double *ver)
+{
+        struct gllc_polyline *pl = (struct gllc_polyline *)ent;
+
+        int i;
+        int ver_count = pl->ver_size;
+        if (ver)
+        {
+                for (i = 0; i < ver_count; i++)
+                {
+                        ver[i * 2] = pl->ver[i].x;
+                        ver[i * 2 + 1] = pl->ver[i].y;
+                }
+        }
+        return ver_count;
+}
+
 const static struct gllc_block_entity_vtable g_vtable = {
     .build = build,
     .destroy = destruct,
     .bbox = bbox,
     .picked = picked,
-    .selected = selected};
+    .selected = selected,
+    .vertices = vertices,
+    .type = GLLC_ENT_POLYLINE};
 
 struct gllc_polyline *gllc_polyline_create(struct gllc_block *block, int closed, int filled)
 {
@@ -298,5 +345,6 @@ void gllc_polyline_add_ver(struct gllc_polyline *pline, double x, double y)
 {
         push_ver(pline, x, y);
 
+        GLLC_ENT_SET_FLAG(pline, GLLC_ENT_GEOMETRY_MODIFIED);
         GLLC_ENT_SET_FLAG(pline, GLLC_ENT_MODIFIED);
 }
