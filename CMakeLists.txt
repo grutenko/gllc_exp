@@ -75,6 +75,7 @@ set(SOURCES glad.c
   gllc_point.c
   gllc_sparse_grid.c
   gllc_line_geom.c
+  gllc_vertex.c
   ${GENERATED_HEADERS}
   ${GENERATED_FONT_HEADERS}
   stb_truetype.c
