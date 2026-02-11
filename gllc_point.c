@@ -3,6 +3,7 @@
 #include "gllc_block_entity.h"
 #include "gllc_draw_buffer.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -57,33 +58,45 @@ static void destruct(struct gllc_block_entity *ent)
                 gllc_DE_destroy(point->DE);
 }
 
-static int bbox(struct gllc_block_entity *ent, double *bbox_x0, double *bbox_y0, double *bbox_x1, double *bbox_y1)
+static int bbox(struct gllc_block_entity *ent, double scale, double *bbox_x0, double *bbox_y0, double *bbox_x1, double *bbox_y1)
 {
         struct gllc_point *point = (struct gllc_point *)ent;
 
-        *bbox_x0 = point->x;
-        *bbox_y0 = point->y;
-        *bbox_x1 = point->x;
-        *bbox_y1 = point->y;
+        *bbox_x0 = point->x - (5.0f * scale);
+        *bbox_y0 = point->y - (5.0f * scale);
+        *bbox_x1 = point->x + (5.0f * scale);
+        *bbox_y1 = point->y + (5.0f * scale);
 
         return 1;
 }
 
-static int picked(struct gllc_block_entity *ent, double x, double y)
+static int picked(struct gllc_block_entity *ent, double scale, double x, double y)
 {
-        return 0;
+        struct gllc_point *p = (struct gllc_point *)ent;
+
+        double dx = fabs(p->x - x);
+        double dy = fabs(p->y - y);
+
+        return sqrt(dx * dx + dy * dy) / scale <= 5.0f;
 }
 
-static int selected(struct gllc_block_entity *ent, double x0, double y0, double x1, double y1)
+static int selected(struct gllc_block_entity *ent, double scale, double x0, double y0, double x1, double y1)
 {
         struct gllc_point *p = (struct gllc_point *)ent;
 
         return x0 <= p->x && y0 <= p->y && x1 >= p->x && y1 >= p->y;
 }
 
-static int vertices(struct gllc_block_entity *ent, double *ver)
+static int vertices(struct gllc_block_entity *ent, double scale, double *ver)
 {
-        return 0;
+        struct gllc_point *p = (struct gllc_point *)ent;
+
+        if (ver)
+        {
+                ver[0] = p->x;
+                ver[1] = p->y;
+        }
+        return 1;
 }
 
 const static struct gllc_block_entity_vtable g_vtable = {
@@ -106,6 +119,8 @@ struct gllc_point *gllc_point_create(struct gllc_block *block, double x, double 
 
                 ent->x = x;
                 ent->y = y;
+
+                //GLLC_ENT_SET_FLAG(ent, GLLC_ENT_SCREEN_SIZE);
         }
 
         return ent;

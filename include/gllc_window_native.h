@@ -13,6 +13,7 @@ typedef void (*gllc_WN_size_cb)(struct gllc_WN *w, int width, int height, void *
 typedef void (*gllc_WN_mouse_move_cb)(struct gllc_WN *w, int x, int y, void *USER_1);
 typedef void (*gllc_WN_mouse_click_cb)(struct gllc_WN *wn, int x, int y, int mode, int action, void *USER_1);
 typedef void (*gllc_WN_mouse_scroll_cb)(struct gllc_WN *wn, int dx, int dy, void *USER_1);
+typedef void (*gllc_WN_mouse_scroll_end_cb)(struct gllc_WN *wn, void *USER_1);
 
 struct gllc_WN
 {
@@ -26,12 +27,14 @@ struct gllc_WN
         gllc_WN_mouse_move_cb on_mouse_move;
         gllc_WN_mouse_click_cb on_mouse_click;
         gllc_WN_mouse_scroll_cb on_mouse_scroll;
+        gllc_WN_mouse_scroll_end_cb on_mouse_scroll_end;
 
         void *on_paint_USER_1;
         void *on_size_USER_1;
         void *on_mouse_move_USER_1;
         void *on_mouse_click_USER_1;
         void *on_mouse_scroll_USER_1;
+        void *on_mouse_scroll_end_USER_1;
 
         struct gllc_WN *next;
         struct gllc_WN *prev;
@@ -48,6 +51,8 @@ void gllc_WN_on_mouse_move(struct gllc_WN *w, gllc_WN_mouse_move_cb on_mouse_mov
 void gllc_WN_on_mouse_click(struct gllc_WN *w, gllc_WN_mouse_click_cb on_mouse_click, void *USER_1);
 
 void gllc_WN_on_mouse_scroll(struct gllc_WN *w, gllc_WN_mouse_scroll_cb on_mouse_scroll, void *USER_1);
+
+void gllc_WN_on_mouse_scroll_end(struct gllc_WN *w, gllc_WN_mouse_scroll_end_cb on_mouse_scroll_end, void *USER_1);
 
 void gllc_WN_get_cursor(struct gllc_WN *w, int *x, int *y);
 

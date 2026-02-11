@@ -156,8 +156,8 @@ static HGLRC init_opengl(HDC real_dc)
             WGL_COLOR_BITS_ARB, 32,
             WGL_DEPTH_BITS_ARB, 24,
             WGL_STENCIL_BITS_ARB, 8,
-            //WGL_SAMPLE_BUFFERS_ARB, 1, // включаем MSAA
-            //WGL_SAMPLES_ARB, 2,        // 4x сглаживание
+            // WGL_SAMPLE_BUFFERS_ARB, 1, // включаем MSAA
+            // WGL_SAMPLES_ARB, 2,        // 4x сглаживание
             0};
 
         int pixel_format;
@@ -229,6 +229,9 @@ static void remove_WN(struct gllc_WN *wn)
                 G_window_tail = wn->prev;
 }
 
+#define SCROLL_TIMER_ID 1
+#define SCROLL_DELAY_MS 150
+
 static LRESULT CALLBACK window_callback(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 {
         LRESULT result = 0;
@@ -289,7 +292,20 @@ static LRESULT CALLBACK window_callback(HWND window, UINT msg, WPARAM wparam, LP
                 return 0;
         case WM_MOUSEWHEEL:
                 if (w && w->on_mouse_scroll)
+                {
                         w->on_mouse_scroll(w, 0, GET_WHEEL_DELTA_WPARAM(wparam) / 120, w->on_mouse_scroll_USER_1);
+
+                        KillTimer(w->w, SCROLL_TIMER_ID);
+                        SetTimer(w->w, SCROLL_TIMER_ID, SCROLL_DELAY_MS, NULL);
+                }
+                return 0;
+        case WM_TIMER:
+                if (wparam == SCROLL_TIMER_ID)
+                {
+                        KillTimer(w->w, SCROLL_TIMER_ID);
+                        if (w && w->on_mouse_scroll_end)
+                                w->on_mouse_scroll_end(w, w->on_mouse_scroll_end_USER_1);
+                }
                 return 0;
 
         case WM_MOUSEHWHEEL:
@@ -465,6 +481,13 @@ void gllc_WN_on_mouse_scroll(struct gllc_WN *w, gllc_WN_mouse_scroll_cb on_mouse
 {
         w->on_mouse_scroll = on_mouse_scroll;
         w->on_mouse_scroll_USER_1 = USER_1;
+}
+
+
+void gllc_WN_on_mouse_scroll_end(struct gllc_WN *w, gllc_WN_mouse_scroll_end_cb on_mouse_scroll_end, void *USER_1)
+{
+        w->on_mouse_scroll_end = on_mouse_scroll_end;
+        w->on_mouse_scroll_end_USER_1 = USER_1;
 }
 
 void gllc_WN_swap_buffers(struct gllc_WN *w)

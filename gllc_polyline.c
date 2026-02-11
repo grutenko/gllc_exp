@@ -201,7 +201,7 @@ static void build(struct gllc_block_entity *ent, struct gllc_DBD *DBD)
         }
 }
 
-static int bbox(struct gllc_block_entity *ent, double *bbox_x0, double *bbox_y0, double *bbox_x1, double *bbox_y1)
+static int bbox(struct gllc_block_entity *ent, double scale, double *bbox_x0, double *bbox_y0, double *bbox_x1, double *bbox_y1)
 {
         struct gllc_polyline *pline = (struct gllc_polyline *)ent;
 
@@ -236,7 +236,7 @@ static int bbox(struct gllc_block_entity *ent, double *bbox_x0, double *bbox_y0,
         return 1;
 }
 
-static int picked(struct gllc_block_entity *ent, double x, double y)
+static int picked(struct gllc_block_entity *ent, double scale, double x, double y)
 {
         struct gllc_polyline *pl = (struct gllc_polyline *)ent;
 
@@ -258,17 +258,17 @@ static int picked(struct gllc_block_entity *ent, double x, double y)
         return cnt % 2 == 1;
 }
 
-static int selected(struct gllc_block_entity *ent, double x0, double y0, double x1, double y1)
+static int selected(struct gllc_block_entity *ent, double scale, double x0, double y0, double x1, double y1)
 {
         struct gllc_polyline *c = (struct gllc_polyline *)ent;
 
         double bbox_x0, bbox_y0, bbox_x1, bbox_y1;
-        int ok = bbox(ent, &bbox_x0, &bbox_y0, &bbox_x1, &bbox_y1);
+        int ok = bbox(ent, scale, &bbox_x0, &bbox_y0, &bbox_x1, &bbox_y1);
 
         return ok && bbox_x0 >= x0 && bbox_y0 >= y0 && bbox_x1 <= x1 && bbox_y1 <= y1;
 }
 
-static int vertices(struct gllc_block_entity *ent, double *ver)
+static int vertices(struct gllc_block_entity *ent, double scale, double *ver)
 {
         struct gllc_polyline *pl = (struct gllc_polyline *)ent;
 

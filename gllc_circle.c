@@ -136,7 +136,7 @@ static void destruct(struct gllc_block_entity *ent)
                 gllc_DE_destroy(circle->DE_fill);
 }
 
-static int bbox(struct gllc_block_entity *ent, double *bbox_x0, double *bbox_y0, double *bbox_x1, double *bbox_y1)
+static int bbox(struct gllc_block_entity *ent, double scale, double *bbox_x0, double *bbox_y0, double *bbox_x1, double *bbox_y1)
 {
         struct gllc_circle *circle = (struct gllc_circle *)ent;
 
@@ -148,21 +148,21 @@ static int bbox(struct gllc_block_entity *ent, double *bbox_x0, double *bbox_y0,
         return 1;
 }
 
-static int picked(struct gllc_block_entity *ent, double x, double y)
+static int picked(struct gllc_block_entity *ent, double scale, double x, double y)
 {
         struct gllc_circle *c = (struct gllc_circle *)ent;
 
         return 1;
 }
 
-static int selected(struct gllc_block_entity *ent, double x0, double y0, double x1, double y1)
+static int selected(struct gllc_block_entity *ent, double scale, double x0, double y0, double x1, double y1)
 {
         struct gllc_circle *c = (struct gllc_circle *)ent;
 
         return 0;
 }
 
-static int vertices(struct gllc_block_entity *ent, double *ver)
+static int vertices(struct gllc_block_entity *ent, double scale, double *ver)
 {
         return 0;
 }

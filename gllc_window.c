@@ -441,6 +441,14 @@ static void on_size(struct gllc_WN *wn, int width, int height, void *USER_1)
         update_viewport((struct gllc_window *)USER_1);
 }
 
+static void on_scroll_end(struct gllc_WN *wn, void *USER_1)
+{
+        struct gllc_window *w = (struct gllc_window *)USER_1;
+
+        // Перестраивает сетку поиска для элементов GLLC_ENT_SCREEN_SIZE
+        gllc_block_on_scale(w->block, w->viewport.scale_factor);
+}
+
 struct gllc_block *gllc_window_get_block(struct gllc_window *window)
 {
         return window->block;
@@ -472,6 +480,7 @@ struct gllc_window *gllc_window_create(void *parent)
         gllc_WN_on_mouse_move(w->native, on_mouse_move, w);
         gllc_WN_on_mouse_scroll(w->native, on_mouse_scroll, w);
         gllc_WN_on_mouse_click(w->native, on_mouse_click, w);
+        gllc_WN_on_mouse_scroll_end(w->native, on_scroll_end, w);
 
         gllc_WN_make_context_current(w->native);
 

@@ -5,8 +5,8 @@
 
 struct gllc_block_entity;
 
-#define GLLC_SG_CELL 64
-#define GLLC_SG_CELL_SHIFT 6
+#define GLLC_SG_CELL 128
+#define GLLC_SG_CELL_SHIFT 7
 #define GLLC_SG_HASH(X_, Y_) (uint64_t)((X_) << 24 | (Y_))
 
 struct gllc_SG_cell
@@ -21,14 +21,29 @@ struct gllc_SG_cell
         struct gllc_SG_cell *right;
 };
 
-int gllc_SG_push(struct gllc_SG_cell **grid, struct gllc_block_entity *ent, double bbox_x0, double bbox_y0, double bbox_x1, double bbox_y1);
+struct gllc_SG_lookup
+{
+        struct gllc_block_entity *ent;
+        struct gllc_SG_cell *cell;
+        size_t pos;
+};
 
-void gllc_SG_remove(struct gllc_SG_cell **grid, struct gllc_block_entity *ent);
+struct gllc_SG
+{
+        struct gllc_SG_lookup *lookup_table;
+        size_t lookup_table_cap;
+        size_t lookup_table_cnt;
+        struct gllc_SG_cell *root;
+};
 
-void gllc_SG_cleanup(struct gllc_SG_cell **grid);
+int gllc_SG_push(struct gllc_SG *grid, struct gllc_block_entity *ent, double bbox_x0, double bbox_y0, double bbox_x1, double bbox_y1);
 
-struct gllc_SG_cell *gllc_SG_pick_cell(struct gllc_SG_cell **grid, double x, double y);
+void gllc_SG_remove(struct gllc_SG *grid, struct gllc_block_entity *ent);
 
-struct gllc_SG_cell *gllc_SG_cell_at(struct gllc_SG_cell **grid, int x, int y);
+void gllc_SG_cleanup(struct gllc_SG *grid);
+
+struct gllc_SG_cell *gllc_SG_pick_cell(struct gllc_SG *grid, double x, double y);
+
+struct gllc_SG_cell *gllc_SG_cell_at(struct gllc_SG *grid, int x, int y);
 
 #endif

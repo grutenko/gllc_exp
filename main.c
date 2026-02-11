@@ -172,7 +172,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         struct gllc_drawing *hDrw = gllc_drawing_create();
         struct gllc_block *hBlock = gllc_drw_add_block(hDrw, "Model Space", 0.0f, 0.0f);
 
-        int grid_size = 2;
+        int grid_size = 3;
         int width = 600;
         int height = 600;
 
@@ -191,7 +191,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                         gllc_ent_set_color((struct gllc_block_entity *)hRect, color);
                         gllc_ent_set_fcolor((struct gllc_block_entity *)hRect, color);
 
-                        // struct gllc_point *hPoint = gllc_block_add_point(hBlock, x0 + (double)grid_size / 2, y0 +  + (double)grid_size / 2);
+                        //struct gllc_point *hPoint = gllc_block_add_point(hBlock, x0 + (double)grid_size / 2, y0 +  + (double)grid_size / 2);
                 }
         }
 
