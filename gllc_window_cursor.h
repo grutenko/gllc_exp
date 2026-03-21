@@ -12,13 +12,13 @@
 #define CURSOR_BOX_ICOUNT 4
 #define CURSOR_EBO_SIZE (sizeof(GLuint) * CURSOR_BOX_ICOUNT)
 
-struct gllc_W_cursor
-{
-        GLuint VAO;
-        GLuint VBO;
-        GLuint EBO;
+struct gllc_W_cursor {
+  GLuint VAO;
+  GLuint VBO;
+  GLuint EBO;
 };
 
-void gllc_W_cursor_draw(struct gllc_W_cursor *c, GLuint u_color_loc, int x, int y, int width, int height);
+void gllc_W_cursor_draw(struct gllc_W_cursor *c, GLuint u_color_loc, int x,
+                        int y, int width, int height);
 
 #endif
