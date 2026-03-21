@@ -1,7 +1,7 @@
 #include "gllc_rect.h"
 #include "gllc_block_entity.h"
 #include "gllc_draw_buffer.h"
-#include "include/gllc_block.h"
+#include "gllc_block.h"
 
 #include <math.h>
 #include <stdlib.h>

@@ -8,7 +8,7 @@
 #include "gllc_window_selection.h"
 
 #include <cglm/call.h>
-#include <glad.h>
+#include "glad.h"
 
 struct gllc_WN;
 struct gllc_block;

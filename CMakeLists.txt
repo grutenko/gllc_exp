@@ -83,7 +83,7 @@ set(SOURCES glad.c
 
 add_executable(gllc_exp ${SOURCES})
 
-target_link_libraries(gllc_exp PRIVATE cglm freetype redwg tess2)
+target_link_libraries(gllc_exp PRIVATE cglm tess2)
 
 target_include_directories(gllc_exp PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 

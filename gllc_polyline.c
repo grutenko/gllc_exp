@@ -4,7 +4,7 @@
 #include "gllc_draw_buffer.h"
 #include "gllc_object.h"
 
-#include "tess2/tess2.h"
+#include "libtess2/tess2/tess2.h"
 
 #include <assert.h>
 #include <stdio.h>

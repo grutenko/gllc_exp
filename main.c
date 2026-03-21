@@ -15,9 +15,6 @@
 #include <windows.h>
 #include <winuser.h>
 
-#include <dwg.h>
-#include <dwg_api.h>
-
 struct gllc_window *w;
 
 double rand_double(double min, double max) {
@@ -50,33 +47,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
     return 0;
   }
   return DefWindowProc(hwnd, uMsg, wParam, lParam);
-}
-
-const char *dwg_entity_type_to_string(int type) {
-  switch (type) {
-  case DWG_TYPE_LINE:
-    return "LINE";
-  case DWG_TYPE_LWPOLYLINE:
-    return "LWPOLYLINE";
-  case DWG_TYPE_CIRCLE:
-    return "CIRCLE";
-  case DWG_TYPE_ARC:
-    return "ARC";
-  case DWG_TYPE_TEXT:
-    return "TEXT";
-  case DWG_TYPE_MTEXT:
-    return "MTEXT";
-  case DWG_TYPE_INSERT:
-    return "INSERT";
-  case DWG_TYPE_SOLID:
-    return "SOLID";
-  case DWG_TYPE_SHAPE:
-    return "SHAPE";
-  case DWG_TYPE_SPLINE:
-    return "SPLINE";
-  default:
-    return "UNKNOWN";
-  }
 }
 
 unsigned int rand_color() {

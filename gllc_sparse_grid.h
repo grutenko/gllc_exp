@@ -24,9 +24,9 @@ int gllc_SG_push(struct gllc_SG_cell **grid, struct gllc_block_entity *ent,
                  double bbox_x0, double bbox_y0, double bbox_x1,
                  double bbox_y1);
 
-void gllc_SG_remove(struct gllc_SG *grid, struct gllc_block_entity *ent);
+void gllc_SG_remove(struct gllc_SG_cell **grid, struct gllc_block_entity *ent);
 
-void gllc_SG_cleanup(struct gllc_SG *grid);
+void gllc_SG_cleanup(struct gllc_SG_cell **grid);
 
 struct gllc_SG_cell *gllc_SG_pick_cell(struct gllc_SG_cell **grid, double x,
                                        double y);

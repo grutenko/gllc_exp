@@ -8,11 +8,9 @@
 #include "gllc_rect.h"
 #include "gllc_sparse_grid.h"
 #include "gllc_vertex.h"
-#include "include/gllc_block_entity.h"
 
 #include <assert.h>
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 

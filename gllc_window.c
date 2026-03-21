@@ -12,7 +12,6 @@
 #include "gllc_vertex_shader.h"
 #include "gllc_window_grid.h"
 #include "gllc_window_selection.h"
-#include "include/gllc_block_entity.h"
 
 #include <cglm/call.h>
 #include <cglm/cglm.h>
