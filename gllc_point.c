@@ -3,6 +3,7 @@
 #include "gllc_block_entity.h"
 #include "gllc_draw_buffer.h"
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 

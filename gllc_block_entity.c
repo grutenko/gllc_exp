@@ -5,7 +5,6 @@
 #include "gllc_object.h"
 
 #include <float.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 const struct gllc_prop_def g_block_entity_prop_def[] = {};

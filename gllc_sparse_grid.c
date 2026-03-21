@@ -1,5 +1,6 @@
 #include "gllc_sparse_grid.h"
 #include "gllc_block_entity.h"
+#include "include/gllc_sparse_grid.h"
 
 #include <assert.h>
 #include <math.h>
